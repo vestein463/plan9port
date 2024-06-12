@@ -1,3 +1,9 @@
+This fork contains my patches for making 9pfuse and other server related
+files on FreeBSD-14.
+
+Other than that, my changes to venti to make her index memory based:
+mventi
+
 This is a port of many Plan 9 libraries and programs to Unix.
 
 Installation
