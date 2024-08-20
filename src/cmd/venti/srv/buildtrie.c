@@ -513,3 +513,7 @@ int minicachesleeptime = 0;
 
 void		delaykickicache(void) {}
 
+// from lumpqueue.c
+int
+queuewrite(Lump *u, Packet *p, int creator, uint ms) {return 0;}
+
