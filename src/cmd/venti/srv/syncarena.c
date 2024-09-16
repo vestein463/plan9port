@@ -128,6 +128,7 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 		arena->wtime = now();
 		if(arena->ctime == 0 && arena->memstats.clumps)
 			arena->ctime = arena->wtime;
+		wbarena(arena);
 		flushdcache();
 	}
 

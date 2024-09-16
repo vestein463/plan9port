@@ -8,13 +8,13 @@
 
 //#define XXX
 
-int debug;
-int nofork;
+int debug=0;
+int nofork=0;
+extern int nowrci;
 int mainstacksize = 256*1024;
 VtSrv *ventisrv;
 
 void trie_init(void);
-u64int totalclumps;
 unsigned int trie_insert(unsigned char *, uvlong*); 
 unsigned int trie_retrieve(unsigned char *, uvlong*); 
 
@@ -63,9 +63,6 @@ threadmain(int argc, char *argv[])
 	case 'C':
 		mem = unittoull(EARGF(usage()));
 		break;
-	case 'I':
-		totalclumps = unittoull(EARGF(usage()));
-		break;
 	case 'D':
 		settrace(EARGF(usage()));
 		break;
@@ -84,6 +81,9 @@ threadmain(int argc, char *argv[])
 		break;
 	case 's':
 		nofork = 1;
+		break;
+	case 't':
+		nowrci = 1;
 		break;
 	case 'w':			/* compatibility with old venti */
 		queuewrites = 1;
@@ -164,6 +164,11 @@ threadmain(int argc, char *argv[])
 		bcmem = minbcmem;
 	if(0) fprint(2, "initialize %d bytes of disk block cache\n", bcmem);
 	initdcache(bcmem);
+#if 0
+        fprint(2, "sync...");
+        if(!readonly && syncindex(mainindex) < 0)
+                sysfatal("can't sync server: %r");
+#endif
 
 	trie_init();
 
@@ -508,6 +513,12 @@ loadientry(Index *ix, u8int *score, int type, IEntry *ie)
 }
 
 int
+insertscore(u8int score[VtScoreSize], IAddr *ia, int state, AState *as)
+{
+	return trie_insert(score,&ia->addr);;
+}
+
+int
 lookupscore(u8int score[VtScoreSize], int type, IAddr *ia)
 {
 // cannot use trie_retrieve, because we need ia.type
@@ -561,3 +572,4 @@ void		delaykickicache(void) {}
 // from lumpqueue.c
 int
 queuewrite(Lump *u, Packet *p, int creator, uint ms) {return 0;}
+

@@ -7,6 +7,7 @@ int loadclumpinfo(uvlong addr, ClumpInfo *ci);
    Some variables are static. To be threadsafe, accesses are to be qlocked.
 */
 static QLock	trielock;
+extern int nowrci;
 enum {
 #define TRIPLET /* this changes the trie from 16-way to 8-way*/
 #ifdef TRIPLET
@@ -285,6 +286,24 @@ u64int	indexentries;
 
 static void	arenapartproc(void*);
 void
+trie_init0( void) {
+	unsigned int tsmax = 0, lsmax =0;
+	unsigned int tsum = 0, lsum =0;
+	unsigned int atsum = 0, alsum =0;
+	for(int j=0;j<ntries;j++) {
+		atsum += triedata[j].tmax;
+		alsum += triedata[j].lmax;
+		tsum += triedata[j].ts;
+		lsum += triedata[j].ls;
+		if(triedata[j].ts > tsmax) tsmax =triedata[j].ts;
+		if(triedata[j].ls > lsmax) lsmax =triedata[j].ls;
+	}
+	fprint(2, "maxdepth:%,d\n", maxdepth);
+	fprint(2, "all tsum:%,d, all lsum:%,d\n", atsum, alsum );
+	fprint(2, "tsmax:%,d, tsum:%,d, lsmax:%,d, lsum:%,d\n", tsmax, tsum, lsmax, lsum );
+}
+
+void
 trie_init( void) {
 	int i, napart, nfinish;
 	Part *p;
@@ -310,20 +329,7 @@ trie_init( void) {
 		recvp(arenadonechan);
 	fprint(2, "%T done arenaentries=%,lld indexed=%,lld (nskip=%,lld)\n",
 		arenaentries, indexentries, skipentries);
-	unsigned int tsmax = 0, lsmax =0;
-	unsigned int tsum = 0, lsum =0;
-	unsigned int atsum = 0, alsum =0;
-	for(int j=0;j<ntries;j++) {
-		atsum += triedata[j].tmax;
-		alsum += triedata[j].lmax;
-		tsum += triedata[j].ts;
-		lsum += triedata[j].ls;
-		if(triedata[j].ts > tsmax) tsmax =triedata[j].ts;
-		if(triedata[j].ls > lsmax) lsmax =triedata[j].ls;
-	}
-	fprint(2, "maxdepth:%,d\n", maxdepth);
-	fprint(2, "all tsum:%,d, all lsum:%,d\n", atsum, alsum );
-	fprint(2, "tsmax:%,d, tsum:%,d, lsmax:%,d, lsum:%,d\n", tsmax, tsum, lsmax, lsum );
+	trie_init0();
 	qlock(&trielock);
 	free(scotable);
 	scotable = 0;
@@ -360,6 +366,7 @@ arenapartproc(void *v)
 		a = ix->arenas[i];
 		if(a->part != p)
 			continue;
+		if( a->diskstats.sealed==0 ) (void)syncarena(a, TWID32, 1, 1);
 		if(a->memstats.clumps)
 			fprint(2, "%T arena %s: %d entries\n",
 				a->name, a->memstats.clumps);
