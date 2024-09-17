@@ -21,7 +21,7 @@ rdarena(Arena *arena, u64int offset)
 	printarena(2, arena);
 
 	a = arena->base;
-	e = arena->base + arena->size;
+	e = /*arena->base +*/ arena->size;
 	if(offset != ~(u64int)0) {
 		if(offset >= e-a)
 			sysfatal("bad offset %llud >= %llud",
@@ -72,7 +72,7 @@ threadmain(int argc, char *argv[])
 	ArenaHead head;
 
 	readonly = 1;	/* for part.c */
-	aoffset = 0;
+	aoffset = 8192*97;
 	ARGBEGIN{
 	case 'o':
 		aoffset = strtoull(EARGF(usage()), 0, 0);
