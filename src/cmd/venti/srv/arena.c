@@ -23,6 +23,7 @@ static Rendez	sumwait;
 static ASum	*sumq;
 static ASum	*sumqtail;
 static uchar zero[8192];
+int nowrci=0;
 
 int	arenasumsleeptime;
 
@@ -385,8 +386,10 @@ NoCIG:
 	if(arena->ctime == 0)
 		arena->ctime = arena->wtime;
 
-	writeclumpinfo(arena, clump, &c->info);
-	wbarena(arena);
+	if( !nowrci ) {
+		writeclumpinfo(arena, clump, &c->info);
+		wbarena(arena);
+	}
 
 	qunlock(&arena->lock);
 
