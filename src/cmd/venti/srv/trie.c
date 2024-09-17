@@ -7,7 +7,6 @@ int loadclumpinfo(uvlong addr, ClumpInfo *ci);
    Some variables are static. To be threadsafe, accesses are to be qlocked.
 */
 static QLock	trielock;
-extern int nowrci;
 enum {
 #define TRIPLET /* this changes the trie from 16-way to 8-way*/
 #ifdef TRIPLET
