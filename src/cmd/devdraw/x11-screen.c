@@ -502,6 +502,7 @@ runxevent(XEvent *xev)
 		 * so clear out the keyboard state when we lose the focus.
 		 */
 		_x.kstate = 0;
+		_x.kbuttons = 0;
 		_x.altdown = 0;
 		gfx_abortcompose(w->client);
 		break;
@@ -1275,10 +1276,18 @@ _xtoplan9kbd(XEvent *e)
 	return k+0;
 }
 
+int
+_xtoplan9buttons(unsigned int b)
+{
+	if(b == 0){
+		return 0;
+	}
+	return 1<<(b-1);
+}
+
 static int
 _xtoplan9mouse(Xwin *w, XEvent *e, Mouse *m)
 {
-	int s;
 	XButtonEvent *be;
 	XMotionEvent *me;
 
@@ -1307,54 +1316,18 @@ _xtoplan9mouse(Xwin *w, XEvent *e, Mouse *m)
 		/* BUG? on mac need to inherit these from elsewhere? */
 		m->xy.x = be->x;
 		m->xy.y = be->y;
-		s = be->state;
 		m->msec = be->time;
-		switch(be->button){
-		case 1:
-			s |= Button1Mask;
-			break;
-		case 2:
-			s |= Button2Mask;
-			break;
-		case 3:
-			s |= Button3Mask;
-			break;
-		case 4:
-			s |= Button4Mask;
-			break;
-		case 5:
-			s |= Button5Mask;
-			break;
-		}
+		m->buttons |= _xtoplan9buttons(be->button);
 		break;
 	case ButtonRelease:
 		be = (XButtonEvent*)e;
 		m->xy.x = be->x;
 		m->xy.y = be->y;
-		s = be->state;
 		m->msec = be->time;
-		switch(be->button){
-		case 1:
-			s &= ~Button1Mask;
-			break;
-		case 2:
-			s &= ~Button2Mask;
-			break;
-		case 3:
-			s &= ~Button3Mask;
-			break;
-		case 4:
-			s &= ~Button4Mask;
-			break;
-		case 5:
-			s &= ~Button5Mask;
-			break;
-		}
-		break;
+		m->buttons &= ~_xtoplan9buttons(be->button);
 
 	case MotionNotify:
 		me = (XMotionEvent*)e;
-		s = me->state;
 		m->xy.x = me->x;
 		m->xy.y = me->y;
 		m->msec = me->time;
@@ -1363,28 +1336,39 @@ _xtoplan9mouse(Xwin *w, XEvent *e, Mouse *m)
 	default:
 		return -1;
 	}
-
-	m->buttons = 0;
-	if(s & Button1Mask)
-		m->buttons |= 1;
-	if(s & Button2Mask)
-		m->buttons |= 2;
-	if(s & Button3Mask)
-		m->buttons |= 4;
-	if(s & Button4Mask)
-		m->buttons |= 8;
-	if(s & Button5Mask)
-		m->buttons |= 16;
 	return 0;
 }
 
 void
 rpc_setmouse(Client *client, Point p)
 {
+	static XCursor empty_cursor;
 	Xwin *w = (Xwin*)client->view;
 
 	xlock();
+	// XWayland hack - hide cursor before warping
+	// see https://github.com/libsdl-org/SDL/issues/9539
+	if(!empty_cursor){
+		Pixmap bm;
+		XColor black;
+		char bmd[] = { 0 };
+		bm = XCreateBitmapFromData(_x.display, w->drawable, bmd, 1, 1);
+		if(bm){
+			empty_cursor = XCreatePixmapCursor(_x.display, bm, bm, &black, &black, 0, 0);
+			XFreePixmap(_x.display, bm);
+		}
+	}
+
+	if(empty_cursor){
+		XDefineCursor(_x.display, w->drawable, empty_cursor);
+		XFlush(_x.display);
+	}
+
 	XWarpPointer(_x.display, None, w->drawable, 0, 0, 0, 0, p.x, p.y);
+
+	if(empty_cursor)
+		XDefineCursor(_x.display, w->drawable, _x.cursor);
+
 	XFlush(_x.display);
 	xunlock();
 }
@@ -1628,8 +1612,9 @@ if(0) fprint(2, "xselect target=%d requestor=%d property=%d selection=%d (sizeof
 	|| xe->target == _x.utf8string
 	|| xe->target == _x.text
 	|| xe->target == _x.compoundtext
-	|| ((name = XGetAtomName(_x.display, xe->target)) && strcmp(name, "text/plain;charset=UTF-8") == 0)){
+	|| ((name = XGetAtomName(_x.display, xe->target)) && strcasecmp(name, "text/plain;charset=UTF-8") == 0)){
 		/* text/plain;charset=UTF-8 seems nonstandard but is used by Synergy */
+		/* text/plain;charset=utf-8 is used by xfce4-terminal 1.0.4 */
 		/* if the target is STRING we're supposed to reply with Latin1 XXX */
 		qlock(&clip.lk);
 		XChangeProperty(_x.display, xe->requestor, xe->property, xe->target,
