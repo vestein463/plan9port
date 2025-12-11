@@ -9,7 +9,8 @@ usage(void)
 	threadexitsall("usage");
 }
 
-unsigned int trie_insert(unsigned int tr, unsigned char *s, int vv, int tp);
+int trie_insert(unsigned char *, uvlong*);
+void trie_init0(void);
 void trie_print(int tr);
 
 static void
@@ -59,10 +60,12 @@ rdarena(Arena *arena, u64int offset)
 			}
 		}
 //		print("%22llud %V %3d %5d\n", aa, score, cl.info.type, cl.info.uncsize);
-		(void)trie_insert(0,score,aa,cl.info.uncsize);
-//		if( tf==~0 ) exits("insert failed");
+		unsigned int tf=trie_insert(score,&aa);
+		assert( tf!= ~0 );
 	}
-//	print("end offset %llud\n", aa);
+	fprint(2, "end offset %llud\n", aa);
+	trie_init0();
+	trie_print(0);
 }
 
 void
@@ -126,7 +129,6 @@ threadmain(int argc, char *argv[])
 		sysfatal("initarena: %r");
 
 	rdarena(arena, offset);
-	trie_print(0);
 
 	threadexitsall(0);
 }
