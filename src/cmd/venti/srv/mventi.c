@@ -164,11 +164,6 @@ threadmain(int argc, char *argv[])
 		bcmem = minbcmem;
 	if(0) fprint(2, "initialize %d bytes of disk block cache\n", bcmem);
 	initdcache(bcmem);
-#if 0
-        fprint(2, "sync...");
-        if(!readonly && syncindex(mainindex) < 0)
-                sysfatal("can't sync server: %r");
-#endif
 
 	trie_init();
 

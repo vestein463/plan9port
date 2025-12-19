@@ -43,14 +43,14 @@ static void getscore(struct trieleaf *ia) {
 	arena = amapitoa(mainindex, ia->addr, &aa);
 	if(arena!=nil)
 		readarena(arena,aa+9,oldscore,VtScoreSize);
-	if( actb == oldscore[0]*256+oldscore[1] );
-	else fprint(2, "oldscore %V actb %2llux\n", oldscore, actb);
+	if( actb != oldscore[0]*256+oldscore[1] )
+		fprint(2, "oldscore %V actb %2llux\n", oldscore, actb);
 //	assert( actb == oldscore[0]*256+oldscore[1] );
 }
 
 #ifdef TRIPLET
 inline static int nibble( unsigned char *c, int d) {
-#if 0	/* former code, not really wrong, but changes sort order of scores */
+#ifdef FORMER	/* former code, not really wrong, but changes sort order of scores */
 	int d3 = 3*d;
 	int r3 = d3>>3;
 	int z = c[r3]+c[r3+1]*256;
