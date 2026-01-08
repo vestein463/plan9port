@@ -37,6 +37,7 @@ static	int		httpdobj(char *name, int (*f)(HConnect*));
 static	int		xgraph(HConnect *c);
 static	int		xset(HConnect *c);
 static	int		fromwebdir(HConnect *c);
+static int hkill(HConnect *c);
 
 int
 httpdinit(char *address, char *dir)
@@ -53,6 +54,7 @@ httpdinit(char *address, char *dir)
 	httpdobj("/index", dindex);
 	httpdobj("/storage", sindex);
 	httpdobj("/xindex", xindex);
+	httpdobj("/flushdcache", hdcacheflush);
 	httpdobj("/graph", xgraph);
 	httpdobj("/set", xset);
 	httpdobj("/log", xlog);
@@ -62,6 +64,7 @@ httpdinit(char *address, char *dir)
 	httpdobj("/disk", hdisk);
 	httpdobj("/debug", hdebug);
 	httpdobj("/proc/", hproc);
+	httpdobj("/kill", hkill); /* just for debugging */
 
 	if(vtproc(listenproc, address) < 0)
 		return -1;
@@ -589,6 +592,12 @@ hlcacheempty(HConnect *c)
 	hprint(hout, "emptied lumpcache\n");
 	hflush(hout);
 	return 0;
+}
+
+static int
+hkill(HConnect *c)
+{
+	threadexitsall("killed by friendly fire\n");
 }
 
 static int

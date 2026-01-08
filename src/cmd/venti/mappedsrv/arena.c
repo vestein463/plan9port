@@ -1,6 +1,8 @@
 #include "stdinc.h"
 #include "dat.h"
 #include "fns.h"
+#include <sys/mman.h>
+//#define DRECK
 
 /* this version of arena only works when the arena partition is mmap'ed */
 typedef struct ASum ASum;
@@ -24,6 +26,7 @@ static ASum	*sumq;
 static ASum	*sumqtail;
 
 int	arenasumsleeptime;
+static uchar zero[8192];
 
 int
 initarenasum(void)
@@ -68,6 +71,8 @@ initarena(Part *part, u64int base, u64int size, u32int blocksize)
 
 	if(arena->diskstats.sealed && scorecmp(zeroscore, arena->score)==0)
 		sealarena(arena);
+	if(arena->diskstats.sealed)
+		mprotect(arena->part->mapped+arena->base,arena->size,PROT_READ);
 
 	return arena;
 }
@@ -78,6 +83,46 @@ freearena(Arena *arena)
 	if(arena == nil)
 		return;
 	free(arena);
+}
+
+Arena*
+newarena(Part *part, u32int vers, char *name, u64int base, u64int size, u32int blocksize)
+{
+	int bsize;
+	Arena *arena;
+
+	if(nameok(name) < 0){
+		seterr(EOk, "illegal arena name", name);
+		return nil;
+	}
+	arena = MKZ(Arena);
+	arena->part = part;
+	arena->version = vers;
+	if(vers == ArenaVersion4)
+		arena->clumpmagic = _ClumpMagic;
+	else{
+		do
+			arena->clumpmagic = fastrand();
+		while(arena->clumpmagic==_ClumpMagic || arena->clumpmagic==0);
+	}
+	arena->blocksize = blocksize;
+	arena->clumpmax = arena->blocksize / ClumpInfoSize;
+	arena->base = base + blocksize;
+	arena->size = size - 2 * blocksize;
+
+	namecp(arena->name, name);
+
+	bsize = sizeof zero;
+	if(bsize > arena->blocksize)
+		bsize = arena->blocksize;
+
+	if(wbarena(arena)<0 || wbarenahead(arena)<0
+	|| writepart(arena->part, arena->base, zero, bsize)<0){
+		freearena(arena);
+		return nil;
+	}
+
+	return arena;
 }
 
 int
@@ -187,7 +232,7 @@ writearena(Arena *arena, u64int aa, u8int *clbuf, u32int n)
 		seterr(EOk, "writing beyond arena clump storage");
 		return -1;
 	}
-	memmove(arena->part->mapped+aa,clbuf, n);
+	a_wr(arena->part->mapped+aa,clbuf, n);
 
 	qunlock(&arena->lock);
 	return n;
@@ -213,7 +258,7 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 		if(!arena->memstats.sealed){
 			logerr(EOk, "seal memstats %s", arena->name);
 			arena->memstats.sealed = 1;
-			wbarena(arena);
+//			wbarena(arena);
 		}
 		qunlock(&arena->lock);
 		return TWID64;
@@ -222,7 +267,8 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 		qunlock(&arena->lock);
 		return TWID64;
 	}
-	memmove(clbuf, arena->part->mapped+aa,n);
+	a_wr(arena->part->mapped+arena->base+aa,clbuf, n);
+
 	arena->memstats.used += c->info.size + ClumpSize;
 	arena->memstats.uncsize += c->info.uncsize;
 	if(c->info.size < c->info.uncsize)
@@ -308,55 +354,33 @@ sumarena(Arena *arena)
 	bs = MaxIoSize;
 	if(bs < arena->blocksize)
 		bs = arena->blocksize;
+	syncarena(arena, TWID32, 1, 1);
 
 	/*
 	 * read & sum all blocks except the last one
 	 */
 	memset(&s, 0, sizeof s);
-	b = alloczblock(bs, 0, arena->part->blocksize);
-	e = arena->base + arena->size;
-	for(a = arena->base - arena->blocksize; a + arena->blocksize <= e; a += bs){
-		while((t=arenasumsleeptime) == SleepForever){
-			sleep(1000);
-		}
-		sleep(t);
-		if(a + bs > e)
-			bs = arena->blocksize;
-		if(readpart(arena->part, a, b->data, bs) < 0)
-			goto ReadErr;
-		addstat(StatSumRead, 1);
-		addstat(StatSumReadBytes, bs);
-		sha1(b->data, bs, nil, &s);
-	}
-
 	/*
-	 * the last one is special, since it may already have the checksum included
+	 * the last block is special, since it may already have the checksum included
 	 */
-	bs = arena->blocksize;
-	if(readpart(arena->part, e, b->data, bs) < 0){
-ReadErr:
-		logerr(EOk, "sumarena can't sum %s, read at %lld failed: %r", arena->name, a);
-		freezblock(b);
-		return;
-	}
-	addstat(StatSumRead, 1);
-	addstat(StatSumReadBytes, bs);
-
-	sha1(b->data, bs-VtScoreSize, nil, &s);
+	a = arena->base - arena->blocksize;
+	e = arena->size +2*arena->blocksize - VtScoreSize;
+	sha1(arena->part->mapped+a, e, nil, &s );
 	sha1(zeroscore, VtScoreSize, nil, &s);
 	sha1(nil, 0, score, &s);
 
 	/*
 	 * check for no checksum or the same
 	 */
-	if(scorecmp(score, &b->data[bs - VtScoreSize]) != 0
-	&& scorecmp(zeroscore, &b->data[bs - VtScoreSize]) != 0)
+	if(scorecmp(score, arena->part->mapped+a+e) != 0
+	&& scorecmp(zeroscore, arena->part->mapped+a+e) != 0)
 		logerr(EOk, "overwriting mismatched checksums for arena=%s, found=%V calculated=%V",
-			arena->name, &b->data[bs - VtScoreSize], score);
-	freezblock(b);
+			arena->name, arena->part->mapped+a+e, score);
 
 	qlock(&arena->lock);
 	scorecp(arena->score, score);
+	if(scorecmp(score, arena->part->mapped+a+e) != 0)
+		scorecp(arena->part->mapped+a+e, score);
 	wbarena(arena);
 	qunlock(&arena->lock);
 }
@@ -367,17 +391,11 @@ ReadErr:
 int
 wbarena(Arena *arena)
 {
-	DBlock *b;
 	int bad;
-
-	if((b = getdblock(arena->part, arena->base + arena->size, OWRITE)) == nil){
-		logerr(EAdmin, "can't write arena trailer: %r");
-		return -1;
-	}
-	dirtydblock(b, DirtyArenaTrailer);
-	bad = okarena(arena)<0 || packarena(arena, b->data)<0;
-	scorecp(b->data + arena->blocksize - VtScoreSize, arena->score);
-	putdblock(b);
+	uchar *trailer = arena->part->mapped + arena->base + arena->size;
+	bad = okarena(arena)<0 || packarena(arena, trailer)<0;
+	scorecp(trailer+arena->blocksize-VtScoreSize, arena->score);
+	msync(trailer,arena->blocksize,MS_SYNC);
 	if(bad)
 		return -1;
 	return 0;
@@ -386,7 +404,6 @@ wbarena(Arena *arena)
 int
 wbarenahead(Arena *arena)
 {
-	ZBlock *b;
 	ArenaHead head;
 	int bad;
 
@@ -395,20 +412,12 @@ wbarenahead(Arena *arena)
 	head.size = arena->size + 2 * arena->blocksize;
 	head.blocksize = arena->blocksize;
 	head.clumpmagic = arena->clumpmagic;
-	b = alloczblock(arena->blocksize, 1, arena->part->blocksize);
-	if(b == nil){
-		logerr(EAdmin, "can't write arena header: %r");
-/* ZZZ add error message? */
-		return -1;
-	}
 	/*
 	 * this writepart is okay because it only happens
 	 * during initialization.
 	 */
-	bad = packarenahead(&head, b->data)<0 ||
-	      writepart(arena->part, arena->base - arena->blocksize, b->data, arena->blocksize)<0 ||
+	bad = packarenahead(&head, arena->part->mapped+arena->base - arena->blocksize)<0 ||
 	      flushpart(arena->part)<0;
-	freezblock(b);
 	if(bad)
 		return -1;
 	return 0;
@@ -557,10 +566,17 @@ DBlock *getdblock(Part *part, u64int addr, int mode){
 	staticdblock.data= part->mapped+addr;
 	return &staticdblock;
 }
+void flushdcache(void) {
+	if( mainindex->arenas[0]==0 || mainindex->arenas[0]->part==0) 
+		{ threadexitsall( "flushd failed\n" );}
+	fprint(2, "flushdcache %llx %ulld\n",
+		mainindex->arenas[0]->part->mapped,mainindex->arenas[0]->part->size);
+	msync(mainindex->arenas[0]->part->mapped,mainindex->arenas[0]->part->size,MS_SYNC);
+	fsync(mainindex->arenas[0]->part->fd);
+}
 void initdcache(u32int n) {}
 void kickdcache(void) {}
 void emptydcache(void) {}
-void flushdcache(void) {}
 void dirtydblock(DBlock *d,int n) {}
 void putdblock(DBlock *b) {}
 

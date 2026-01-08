@@ -3,7 +3,6 @@ typedef struct AMap		AMap;
 typedef struct AMapN		AMapN;
 typedef struct Arena		Arena;
 typedef struct AState	AState;
-typedef struct ArenaCIG	ArenaCIG;
 typedef struct ArenaHead	ArenaHead;
 typedef struct ArenaPart	ArenaPart;
 typedef struct ArenaTail	ArenaTail;
@@ -27,7 +26,6 @@ typedef struct Statdesc	Statdesc;
 typedef struct Stats		Stats;
 typedef struct ZBlock		ZBlock;
 typedef struct Round	Round;
-typedef struct Bloom	Bloom;
 
 #pragma incomplete IEStream
 
@@ -95,7 +93,6 @@ enum
 	ArenaPartVersion	= 3,
 	ArenaVersion4		= 4,
 	ArenaVersion5		= 5,
-	BloomVersion		= 1,
 	IndexVersion		= 1,
 	ISectVersion1		= 1,
 	ISectVersion2		= 2,
@@ -122,13 +119,10 @@ enum
 	ArenaSize5a		= ArenaSize5 + 2 * U8Size + 2 * U32Size + 2 * U64Size,
 	ArenaHeadSize4		= U64Size + 3 * U32Size + ANameSize,
 	ArenaHeadSize5		= ArenaHeadSize4 + U32Size,
-	BloomHeadSize	= 4 * U32Size,
 	ISectSize1		= 7 * U32Size + 2 * ANameSize,
 	ISectSize2		= ISectSize1 + U32Size,
 	ClumpInfoSize		= U8Size + 2 * U16Size + VtScoreSize,
 	ClumpSize		= ClumpInfoSize + U8Size + 3 * U32Size,
-	MaxBloomSize		= 1<<(32-3),	/* 2^32 bits */
-	MaxBloomHash	= 32,		/* bits per score */
 	/*
 	 * BUG - The various block copies that manipulate entry buckets
 	 * would be faster if we bumped IBucketSize up to 8 and IEntrySize up to 40,
@@ -152,8 +146,6 @@ enum
 	DirtyArenaCib,
 	DirtyArenaTrailer,
 	DirtyMax,
-
-	ArenaCIGSize = 10*1024,	// about 0.5 MB worth of IEntry.
 
 	VentiZZZZZZZZ
 };
@@ -298,6 +290,7 @@ struct ArenaPart
 	 */
 	AMap		*map;
 	int		narenas;
+	uchar 		*mapped;
 };
 
 /*
@@ -379,13 +372,7 @@ struct Arena
 	u32int		wtime;			/* last time a block was written */
 	u32int		clumpmagic;
 
-	ArenaCIG	*cig;
 	int	ncig;
-};
-
-struct ArenaCIG
-{
-	u64int	offset;  // from arena base
 };
 
 /*
@@ -633,13 +620,6 @@ enum
 	StatScacheHit,
 	StatScachePrefetch,
 
-	StatBloomHit,
-	StatBloomMiss,
-	StatBloomFalseMiss,
-	StatBloomLookup,
-	StatBloomOnes,
-	StatBloomBits,
-
 	StatApartRead,
 	StatApartReadBytes,
 	StatApartWrite,
@@ -708,22 +688,6 @@ struct Round
 	int		current;
 	int		next;
 	int		doanother;
-};
-
-/*
- * Bloom filter of stored block hashes
- */
-struct Bloom
-{
-	RWLock lk;		/* protects nhash, nbits, tab, mb */
-	QLock mod;		/* one marker at a time, protects nb */
-	int nhash;
-	ulong size;		/* bytes in tab */
-	ulong bitmask;		/* to produce bit index */
-	u8int *data;
-	Part *part;
-	Channel *writechan;
-	Channel *writedonechan;
 };
 
 extern	Index		*mainindex;

@@ -28,14 +28,6 @@ storeclump(Index *ix, ZBlock *zb, u8int *sc, int type, u32int creator, IAddr *ia
 		return -1;
 	}
 
-	if(0){
-		scoremem(bh, zb->data, size);
-		if(scorecmp(sc, bh) != 0){
-			seterr(ECorrupt, "storing clump: corrupted; expected=%V got=%V, size=%d", sc, bh, size);
-			return -1;
-		}
-	}
-
 	cb = alloczblock(size + ClumpSize + U32Size, 0, 0);
 	if(cb == nil)
 		return -1;

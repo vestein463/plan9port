@@ -319,23 +319,20 @@ wbarenamap(AMap *am, int n, Part *part, u64int base, u64int size)
 	Fmt f;
 	ZBlock *b;
 
-	b = alloczblock(size, 1, part->blocksize);
-	if(b == nil)
-		return -1;
-
-	fmtzbinit(&f, b);
+	memset(&f,0,sizeof(f));
+	memset(part->mapped+base,0,size);
+#ifdef PLAN9PORT
+	fmtlocaleinit(&f, nil, nil, nil);
+#endif
+	f.start = part->mapped+base;
+	f.to = f.start;
+	f.stop = (char*)f.start + size;
 
 	if(outputamap(&f, am, n) < 0){
 		seterr(ECorrupt, "arena set size too small");
-		freezblock(b);
 		return -1;
 	}
-	if(writepart(part, base, b->data, size) < 0 || flushpart(part) < 0){
-		seterr(EAdmin, "can't write arena set: %r");
-		freezblock(b);
-		return -1;
-	}
-	freezblock(b);
+	*(char*)f.to = 0;
 	return 0;
 }
 

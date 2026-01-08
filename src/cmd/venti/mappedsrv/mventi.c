@@ -148,8 +148,6 @@ threadmain(int argc, char *argv[])
 	/*
 	 * lump cache
 	 */
-	if(0) fprint(2, "initialize %d bytes of lump cache for %d lumps\n",
-		mem, mem / (8 * 1024));
 	initlumpcache(mem, mem / (8 * 1024));
 
 	trie_init();
@@ -196,8 +194,7 @@ ventiserver(void *v)
 		trace(TraceRpc, "<- %F", &r->tx);
 		r->rx.msgtype = r->tx.msgtype+1;
 		addstat(StatRpcTotal, 1);
-		if(0) print("req (arenas[0]=%p sects[0]=%p) %F\n",
-			mainindex->arenas[0], mainindex->sects[0], &r->tx);
+
 		switch(r->tx.msgtype){
 		default:
 			vtrerror(r, "unknown request");
@@ -292,7 +289,6 @@ fmtindex(Config *conf, Index *ix)
 
 	addr = IndexBase;
 	int n = 0;
-//	if(0) fprint(2,"amap %llx %llx ix-amap %llx\n", amap, arenas, ix->amap);
 	for(int i = 0; i < conf->naparts; i++){
 		ap = conf->aparts[i];
 		for(int j = 0; j < ap->narenas; j++){
@@ -313,8 +309,6 @@ fmtindex(Config *conf, Index *ix)
 				addr += ap->arenas[j]->size;
 				amap[n].stop = addr;
 				namecp(amap[n].name, ap->arenas[j]->name);
-				if(0) fprint(2, "add arena %s at [%lld,%lld)\n",
-					amap[n].name, amap[n].start, amap[n].stop);
 			}
 			n++;
 		}
@@ -437,10 +431,8 @@ loadientry(Index *ix, u8int *score, int type, IEntry *ie)
 
 	h = trie_retrieve(score,&ie->ia.addr);
 	if( h != ~0) ok = 0; 
-	else {
+	else
 		trace(TraceLump, "loadientry notfound");
-		addstat(StatBloomFalseMiss, 1);
-	}
 	if(ok==0) {
 		if( loadclumpinfo(ie->ia.addr, &ci) == 0) {
 			memcpy(ie->score,score,VtScoreSize);

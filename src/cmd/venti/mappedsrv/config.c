@@ -20,7 +20,7 @@ initventi(char *file, Config *conf)
 		seterr(EOk, "can't initialize venti: %r");
 		return -1;
 	}
-	mainindex = initindex(conf->index, conf->sects, 0);
+	mainindex = initindex(conf->index, 0, 0);
 	if(mainindex == nil)
 		return -1;
 	return 0;
@@ -169,8 +169,6 @@ runconfig(char *file, Config *config)
 	free(line);
 	freeifile(&f);
 	if(ok < 0){
-		free(config->sects);
-		config->sects = nil;
 		free(config->aparts);
 		config->aparts = nil;
 	}
@@ -183,7 +181,6 @@ configarenas(char *file)
 	ArenaPart *ap;
 	Part *part;
 
-	if(0) fprint(2, "configure arenas in %s\n", file);
 	part = initpart(file, ORDWR|ODIRECT);
 	if(part == nil)
 		return nil;

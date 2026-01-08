@@ -19,7 +19,8 @@ fn reformat {
 		httpaddr tcp!127.1!8901
 	' >$vtmp/vtmp.conf
 
-	$PLAN9/bin/venti/fmtarenas -a 4M -b 8k arenas $vtmp/arena
+	./o.fmtarenas -a 4M -b 8k arenas $vtmp/arena
+	sleep 2
 }
 
 fn venti {

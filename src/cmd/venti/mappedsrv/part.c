@@ -91,7 +91,7 @@ initpart(char *name, int mode)
 	Part *part;
 	Dir *dir;
 	char *file, *subname;
-	u64int lo, hi;
+	u64int lo=0, hi=0;
 
 	if(parsepart(name, &file, &subname, &lo, &hi) < 0){
 		werrstr("cannot parse name %s", name);
@@ -117,6 +117,8 @@ initpart(char *name, int mode)
 			free(file);
 			return nil;
 		}
+		mode &= ~(ORDWR|OWRITE);
+		mode |= OREAD;
 		fprint(2, "warning: %s opened for reading only\n", name);
 	}
 	part->offset = lo;
@@ -163,15 +165,31 @@ initpart(char *name, int mode)
 		return nil;
 	}
 	free(dir);
-	part->mapped = mmap(NULL, part->size, PROT_READ, MAP_SHARED, part->fd, part->offset);
-	fprint(2, "%s map: %llx, size: %lld, offset: %lld\n", part->name, part->mapped,part->size,part->offset);
+	fprint(2, "%d ", part->fd);
+	if(mode&(OWRITE|ORDWR)) {
+		part->mapped = mmap(NULL, part->size,
+		PROT_MAX(PROT_READ|PROT_WRITE)|PROT_READ|PROT_WRITE, MAP_SHARED , part->fd, part->offset);
+	fprint(2, "writable %s map: %llx, size: %lld, offset: %lld\n",
+		part->name, part->mapped,part->size,part->offset);
+	} else {
+		part->mapped = mmap(NULL, part->size,
+		PROT_MAX(PROT_READ)|PROT_READ, MAP_SHARED , part->fd, part->offset);
+	fprint(2, "readable %s map: %llx, size: %lld, offset: %lld\n",
+		part->name, part->mapped,part->size,part->offset);
+	}
+	if(part->mapped==(void*)(-1)) {
+		werrstr("mapping failed\n" );
+		freepart(part);
+		return nil;
+	}
 	return part;
 }
 
 int
 flushpart(Part *part)
 {
-	USED(part);
+	msync(part->mapped,0,MS_SYNC);
+	fsync(part->fd);
 	return 0;
 }
 
@@ -180,6 +198,7 @@ freepart(Part *part)
 {
 	if(part == nil)
 		return;
+	flushpart(part);
 	if(part->mapped) { munmap( part->mapped, part->size); part->mapped=0; }
 	if(part->fd >= 0)
 		close(part->fd);
@@ -202,33 +221,28 @@ static int sdreset(Part*);
 static int threadspawnl(int[3], char*, char*, ...);
 #endif
 
-static int
-rwpart(Part *part, int isread, u64int offset, u8int *buf, u32int count)
-{
-	trace(TraceDisk, "%s %s %ud at 0x%llx",
-		isread ? "read" : "write", part->name, count, offset);
-	if(offset >= part->size || offset+count > part->size){
-		seterr(EStrange, "out of bounds %s offset 0x%llux count %ud to partition %s size 0x%llux",
-			isread ? "read" : "write", offset, count, part->name, part->size);
-		return -1;
-	}
-	if(isread)
-		memmove(buf, part->mapped+offset, count);
-	else{
-		memmove(part->mapped+offset, buf, count);
-	}
-	return count;
-}
 int
 readpart(Part *part, u64int offset, u8int *buf, u32int count)
 {
-	return rwpart(part, 1, offset, buf, count);
+	if(offset >= part->size || offset+count > part->size){
+		seterr(EStrange, "out of bounds %s offset 0x%llux count %ud to partition %s size 0x%llux",
+			"read", offset, count, part->name, part->size);
+		return -1;
+	}
+	memmove(buf, part->mapped+offset, count);
+	return count;
 }
 
 int
 writepart(Part *part, u64int offset, u8int *buf, u32int count)
 {
-	return rwpart(part, 0, offset, buf, count);
+	if(offset >= part->size || offset+count > part->size){
+		seterr(EStrange, "out of bounds %s offset 0x%llux count %ud to partition %s size 0x%llux",
+			"write", offset, count, part->name, part->size);
+		return -1;
+	}
+	a_wr(part->mapped+offset, buf, count);
+	return count;
 }
 
 ZBlock*
@@ -252,6 +266,8 @@ readfile(char *name)
 		freezblock(b);
 		return nil;
 	}
+	if(p->mapped) { munmap( p->mapped,0); p->mapped=0; }
+	close(p->fd);
 	freepart(p);
 	return b;
 }

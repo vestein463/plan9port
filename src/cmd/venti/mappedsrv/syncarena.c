@@ -152,16 +152,11 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 static int
 writeclumphead(Arena *arena, u64int aa, Clump *cl)
 {
-	ZBlock *zb;
-	int bad;
+	u8int zbdata[ClumpSize];
 
-	zb = alloczblock(ClumpSize, 0, arena->blocksize);
-	if(zb == nil)
-		return -1;
-	bad = packclump(cl, zb->data, arena->clumpmagic)<0
-		|| writearena(arena, aa, zb->data, ClumpSize) != ClumpSize;
-	freezblock(zb);
-	return bad ? -1 : 0;
+	return packclump(cl, zbdata, arena->clumpmagic)<0
+		|| writearena(arena, aa, zbdata, ClumpSize) != ClumpSize
+	?-1:0;
 }
 
 static int

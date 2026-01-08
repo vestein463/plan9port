@@ -189,9 +189,12 @@ void		zeropart(Part *part, int blocksize);
 
 #define scorecmp(h1,h2)		memcmp((h1),(h2),VtScoreSize)
 #define scorecp(h1,h2)		memmove((h1),(h2),VtScoreSize)
+#define a_wr(h1,h2,l)		memmove((h1),(h2),l)
+#define a_rd(h1,h2,l)		memmove((h1),(h2),l)
 
 #define MK(t)			((t*)emalloc(sizeof(t)))
 #define MKZ(t)			((t*)ezmalloc(sizeof(t)))
 #define MKN(t,n)		((t*)emalloc((n)*sizeof(t)))
 #define MKNZ(t,n)		((t*)ezmalloc((n)*sizeof(t)))
 #define MKNA(t,at,n)		((t*)emalloc(sizeof(t) + (n)*sizeof(at)))
+
