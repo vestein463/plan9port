@@ -3,6 +3,9 @@
 #include "dat.h"
 #include "fns.h"
 #include <sys/mman.h>
+#ifndef PROT_MAX
+#define PROT_MAX(x) 0
+#endif
 
 u32int	maxblocksize;
 #pragma weak readonly

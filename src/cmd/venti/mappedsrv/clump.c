@@ -14,7 +14,6 @@ storeclump(Index *ix, ZBlock *zb, u8int *sc, int type, u32int creator, IAddr *ia
 	ZBlock *cb;
 	Clump cl;
 	u64int a;
-	u8int bh[VtScoreSize];
 	int size, dsize;
 
 	trace(TraceLump, "storeclump enter", sc, type);

@@ -344,11 +344,9 @@ sumproc(void *unused)
 void
 sumarena(Arena *arena)
 {
-	ZBlock *b;
 	DigestState s;
 	u64int a, e;
 	u32int bs;
-	int t;
 	u8int score[VtScoreSize];
 
 	bs = MaxIoSize;

@@ -39,7 +39,7 @@ void
 threadmain(int argc, char *argv[])
 {
 	char *configfile, *haddr, *vaddr, *webroot;
-	u32int mem, bcmem, minbcmem;
+	u32int mem, bcmem;
 
 	traceinit();
 	threadsetname("main");
@@ -408,7 +408,6 @@ loadclumpinfo(uvlong addr, ClumpInfo *ci)
 	Arena *arena;
 	u64int aa;
 	u64int bb;
-	unsigned char buf[ClumpInfoSize];
 	arena = amapitoa(mainindex, addr, &aa);
 	bb = arena->base + aa;
 	unpackclumpinfo(ci, arena->part->mapped+bb+4);

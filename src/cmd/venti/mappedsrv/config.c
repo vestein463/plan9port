@@ -64,7 +64,6 @@ int
 runconfig(char *file, Config *config)
 {
 	ArenaPart **av;
-	ISect **sv;
 	IFile f;
 	char *s, *line, *flds[MaxArgs + 1];
 	int i, ok;

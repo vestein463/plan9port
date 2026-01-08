@@ -317,7 +317,6 @@ int
 wbarenamap(AMap *am, int n, Part *part, u64int base, u64int size)
 {
 	Fmt f;
-	ZBlock *b;
 
 	memset(&f,0,sizeof(f));
 	memset(part->mapped+base,0,size);

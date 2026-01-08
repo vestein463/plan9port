@@ -31,7 +31,6 @@ static	int		sindex(HConnect *c);
 static	int		hempty(HConnect *c);
 static	int		hlcacheempty(HConnect *c);
 static	int		hdcacheempty(HConnect *c);
-static	int		hdcachekick(HConnect *c);
 static	int		hdcacheflush(HConnect *c);
 static	int		httpdobj(char *name, int (*f)(HConnect*));
 static	int		xgraph(HConnect *c);
@@ -598,6 +597,7 @@ static int
 hkill(HConnect *c)
 {
 	threadexitsall("killed by friendly fire\n");
+	return -1;
 }
 
 static int
@@ -613,23 +613,6 @@ hdcacheempty(HConnect *c)
 
 	emptydcache();
 	hprint(hout, "emptied dcache\n");
-	hflush(hout);
-	return 0;
-}
-
-static int
-hdcachekick(HConnect *c)
-{
-	Hio *hout;
-	int r;
-
-	r = hsettext(c);
-	if(r < 0)
-		return r;
-	hout = &c->hout;
-
-	kickdcache();
-	hprint(hout, "kicked dcache\n");
 	hflush(hout);
 	return 0;
 }
@@ -656,7 +639,7 @@ dindex(HConnect *c)
 {
 	Hio *hout;
 	Index *ix;
-	int i, r;
+	int r;
 
 	r = hsettext(c);
 	if(r < 0)
