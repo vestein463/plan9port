@@ -251,8 +251,9 @@ writepart(Part *part, u64int offset, u8int *buf, u32int count)
 ZBlock*
 readfile(char *name)
 {
-	Part *p;
 	ZBlock *b;
+#ifdef DRECK
+	Part *p;
 
 	p = initpart(name, OREAD);
 	if(p == nil)
@@ -272,6 +273,20 @@ readfile(char *name)
 	if(p->mapped) { munmap( p->mapped,0); p->mapped=0; }
 	close(p->fd);
 	freepart(p);
+#else
+	int pfd;
+	if((pfd = open( name, OREAD)) <0) {
+		seterr(EOk, "can't open %s: %r", name);
+		return nil;
+	}
+	b = alloczblock(8192, 0, 8192);
+	if(read(pfd, b->data, 8192) < 0){
+		seterr(EOk, "can't read %s: %r", name);
+		freezblock(b);
+		return nil;
+	}
+	close(pfd);		
+#endif
 	return b;
 }
 

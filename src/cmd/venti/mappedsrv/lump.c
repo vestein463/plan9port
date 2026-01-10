@@ -2,12 +2,75 @@
 #include "dat.h"
 #include "fns.h"
 
+void trie_init(void);
+unsigned int trie_insert(unsigned char *, uvlong*); 
+unsigned int trie_retrieve(unsigned char *, uvlong*); 
+
 int			bootstrap = 0;
 int			syncwrites = 0;
 int			writestodevnull = 0;
 int			verifywrites = 0;
 
 static Packet		*readilump(Lump *u, IAddr *ia, u8int *score);
+
+/*
+ * lookup the score in the partition
+ */
+int
+loadientry(Index *ix, u8int *score, int type, IEntry *ie)
+{
+	unsigned int h;
+	int ok;
+	ClumpInfo ci;
+
+	ok = -1;
+
+	trace(TraceLump, "loadientry enter");
+
+	h = trie_retrieve(score,&ie->ia.addr);
+	if( h != ~0) ok = 0; 
+	else
+		trace(TraceLump, "loadientry notfound");
+	if(ok==0) {
+		if( loadclumpinfo(ie->ia.addr, &ci) == 0) {
+			memcpy(ie->score,score,VtScoreSize);
+			ie->ia.type = ci.type;
+			ie->ia.size = ci.uncsize;
+			ie->ia.blocks = (ci.size + ClumpSize + (1<<ABlockLog)-1) >> ABlockLog;
+		} else ok = -1;
+	}
+	trace(TraceLump, "loadientry exit");
+	return ok;
+}
+
+int
+loadclumpinfo(uvlong addr, ClumpInfo *ci)
+{
+	Arena *arena;
+	u64int aa;
+	u64int bb;
+	arena = amapitoa(mainindex, addr, &aa);
+	bb = arena->base + aa;
+	unpackclumpinfo(ci, arena->part->mapped+bb+4);
+	return 0;
+}
+
+int
+insertscore(u8int score[VtScoreSize], IAddr *ia, int state, AState *as)
+{
+	return trie_insert(score,&ia->addr);;
+}
+
+int
+lookupscore(u8int score[VtScoreSize], int type, IAddr *ia)
+{
+// cannot use trie_retrieve, because we need ia.type
+	IEntry ie;
+	int ret = loadientry(mainindex, score, type, &ie);
+	*ia = ie.ia;
+	if(ret == -1 || ie.ia.type != type) return -1;
+	return 0;
+}
 
 /*
  * Some of this logic is duplicated in hdisk.c
@@ -179,6 +242,42 @@ fprint(2, "readilump %llux ia %llux score %V\n", old, ia.addr, u->score);
 	ms = msec() - ms;
 	addstat2(StatRpcWriteNew, 1, StatRpcWriteNewTime, ms);
 	return ok;
+}
+
+/*
+ * convert an arena index to an relative arena address
+ */
+Arena*
+amapitoa(Index *ix, u64int a, u64int *aa)
+{
+	int i, r, l, m;
+
+	l = 1;
+	r = ix->narenas - 1;
+	while(l <= r){
+		m = (r + l) / 2;
+		if(ix->amap[m].start <= a)
+			l = m + 1;
+		else
+			r = m - 1;
+	}
+	l--;
+
+	if(a > ix->amap[l].stop){
+for(i=0; i<ix->narenas; i++)
+	print("arena %d: %llux - %llux\n", i, ix->amap[i].start, ix->amap[i].stop);
+print("want arena %d for %llux\n", l, a);
+		seterr(ECrash, "unmapped address passed to amapitoa");
+		return nil;
+	}
+
+	if(ix->arenas[l] == nil){
+		seterr(ECrash, "unmapped arena selected in amapitoa");
+		return nil;
+	}
+	*aa = a - ix->amap[l].start;
+//	debugarena = l;
+	return ix->arenas[l];
 }
 
 static Packet*

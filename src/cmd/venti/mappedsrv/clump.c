@@ -4,6 +4,51 @@
 #include "whack.h"
 
 /*
+ * write a clump to an available arena in the index
+ * and return the address of the clump within the index.
+ZZZ question: should this distinguish between an arena
+filling up and real errors writing the clump?
+ */
+u64int
+writeiclump(Index *ix, Clump *c, u8int *clbuf)
+{
+	u64int a;
+	int i;
+	IAddr ia;
+	AState as;
+
+	ia.addr = 0;
+// this should not happen, but it does ZZZ
+	unsigned int h= trie_retrieve(c->info.score,&ia.addr);
+if(h!=~0) fprint(2,"h: %ux, %llux %V\n", h, ia.addr, c->info.score);
+        if(h!=~0) return ia.addr;
+	trace(TraceLump, "writeiclump enter");
+	qlock(&ix->writing);
+	for(i = ix->mapalloc; i < ix->narenas; i++){
+		a = writeaclump(ix->arenas[i], c, clbuf);
+		if(a != TWID64){
+			ix->mapalloc = i;
+			ia.addr = ix->amap[i].start + a;
+			ia.type = c->info.type;
+			ia.size = c->info.uncsize;
+			ia.blocks = (c->info.size + ClumpSize + (1<<ABlockLog) - 1) >> ABlockLog;
+			as.arena = ix->arenas[i];
+			as.aa = ia.addr;
+			as.stats = as.arena->memstats;
+			trie_insert(c->info.score,&ia.addr);
+			qunlock(&ix->writing);
+			trace(TraceLump, "writeiclump exit");
+			return ia.addr;
+		}
+	}
+	qunlock(&ix->writing);
+
+	seterr(EAdmin, "no space left in arenas");
+	trace(TraceLump, "writeiclump failed");
+	return TWID64;
+}
+
+/*
  * Write a lump to disk.  Updates ia with an index address
  * for the newly-written lump.  Upon return, the lump will
  * have been placed in the disk cache but will likely not be on disk yet.
