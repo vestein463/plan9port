@@ -4,13 +4,11 @@ LIBOFILES=\
 	arena.$O\
 	arenas.$O\
 	clump.$O\
-	config.$O\
 	conv.$O\
 	graph.$O\
 	hdisk.$O\
 	hproc.$O\
 	httpd.$O\
-	ifile.$O\
 	lump.$O\
 	lumpcache.$O\
 	part.$O\

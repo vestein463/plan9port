@@ -159,8 +159,8 @@ initpart(char *name, int mode)
 			part->fsblocksize = sfs.f_bsize;
 	}
 #endif
-
-	part->fsblocksize = min(part->fsblocksize, MaxIo);
+//	part->fsblocksize = min(part->fsblocksize, MaxIo);
+// we don't care about fsblocksize
 
 	if(subname && findsubpart(part, subname) < 0){
 		werrstr("cannot find subpartition %s", subname);
@@ -172,14 +172,15 @@ initpart(char *name, int mode)
 	if(mode&(OWRITE|ORDWR)) {
 		part->mapped = mmap(NULL, part->size,
 		PROT_MAX(PROT_READ|PROT_WRITE)|PROT_READ|PROT_WRITE, MAP_SHARED , part->fd, part->offset);
-	fprint(2, "writable %s map: %llx, size: %lld, offset: %lld\n",
-		part->name, part->mapped,part->size,part->offset);
+		fprint(2, "writable %s map: %llx, ", part->name, part->mapped);
 	} else {
 		part->mapped = mmap(NULL, part->size,
 		PROT_MAX(PROT_READ)|PROT_READ, MAP_SHARED , part->fd, part->offset);
-	fprint(2, "readable %s map: %llx, size: %lld, offset: %lld\n",
-		part->name, part->mapped,part->size,part->offset);
+		fprint(2, "readable %s map: %llx, ", part->name, part->mapped);
 	}
+// on Linux, var parms don't work correctly
+	fprint(2, "size: %lld, ", part->size);
+	fprint(2, "offset: %lld\n", part->offset);
 	if(part->mapped==(void*)(-1)) {
 		werrstr("mapping failed\n" );
 		freepart(part);
@@ -244,7 +245,7 @@ writepart(Part *part, u64int offset, u8int *buf, u32int count)
 			"write", offset, count, part->name, part->size);
 		return -1;
 	}
-	a_wr(part->mapped+offset, buf, count);
+	memmove(part->mapped+offset, buf, count);
 	return count;
 }
 
@@ -252,28 +253,6 @@ ZBlock*
 readfile(char *name)
 {
 	ZBlock *b;
-#ifdef DRECK
-	Part *p;
-
-	p = initpart(name, OREAD);
-	if(p == nil)
-		return nil;
-	b = alloczblock(p->size, 0, p->blocksize);
-	if(b == nil){
-		seterr(EOk, "can't alloc %s: %r", name);
-		freepart(p);
-		return nil;
-	}
-	if(readpart(p, 0, b->data, p->size) < 0){
-		seterr(EOk, "can't read %s: %r", name);
-		freepart(p);
-		freezblock(b);
-		return nil;
-	}
-	if(p->mapped) { munmap( p->mapped,0); p->mapped=0; }
-	close(p->fd);
-	freepart(p);
-#else
 	int pfd;
 	if((pfd = open( name, OREAD)) <0) {
 		seterr(EOk, "can't open %s: %r", name);
@@ -286,7 +265,6 @@ readfile(char *name)
 		return nil;
 	}
 	close(pfd);		
-#endif
 	return b;
 }
 

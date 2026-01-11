@@ -110,8 +110,6 @@ void		packibucket(IBucket *b, u8int *buf, u32int magic);
 void		packientry(IEntry *i, u8int *buf);
 void		packmagic(u32int magic, u8int *buf);
 ZBlock		*packet2zblock(Packet *p, u32int size);
-int		parseamap(IFile *f, AMapN *amn);
-int		parseindex(IFile *f, Index *ix);
 void		partblocksize(Part *part, u32int blocksize);
 int		partifile(IFile *f, Part *part, u64int start, u32int size);
 void		printarenapart(int fd, ArenaPart *ap);
@@ -189,8 +187,6 @@ void		zeropart(Part *part, int blocksize);
 
 #define scorecmp(h1,h2)		memcmp((h1),(h2),VtScoreSize)
 #define scorecp(h1,h2)		memmove((h1),(h2),VtScoreSize)
-#define a_wr(h1,h2,l)		memmove((h1),(h2),l)
-#define a_rd(h1,h2,l)		memmove((h1),(h2),l)
 
 #define MK(t)			((t*)emalloc(sizeof(t)))
 #define MKZ(t)			((t*)ezmalloc(sizeof(t)))

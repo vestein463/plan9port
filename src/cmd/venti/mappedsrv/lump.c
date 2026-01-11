@@ -298,7 +298,7 @@ readilump(Lump *u, IAddr *ia, u8int *score)
 	}
 
 	trace(TraceLump, "readilump loadclump");
-	zb = loadclump(arena, aa, ia->blocks, &cl, sc, paranoid);
+	zb = loadclump(arena, aa, ia->blocks, &cl, sc, 0);
 	if(zb == nil){
 		trace(TraceLump, "readilump loadclump failed");
 		return nil;

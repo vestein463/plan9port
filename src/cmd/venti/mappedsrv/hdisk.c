@@ -6,11 +6,12 @@
 static int disksummary(HConnect*);
 static int diskarenapart(HConnect*, char*, Part*);
 
+extern Config config;
 int
 hdisk(HConnect *c)
 {
 	char *disk, *type;
-	Part *p;
+	Part *p = nil;
 	int ret;
 
 	if(hsethtml(c) < 0)
@@ -19,7 +20,13 @@ hdisk(HConnect *c)
 	disk = hargstr(c, "disk", "");
 	if(!disk[0])
 		return disksummary(c);
-	if((p = initpart(disk, OREAD)) == nil){
+	for(int i = 0; i < config.naparts; i++) {
+		if( strcmp(config.aparts[i]->part->filename, disk)==0 ) {
+			p = config.aparts[i]->part;
+			break;
+		}
+	}
+	if(p == nil){
 		hprint(&c->hout, "open %s: %r", disk);
 		return 0;
 	}
@@ -36,7 +43,6 @@ hdisk(HConnect *c)
 		hprint(&c->hout, "unknown disk type %s", type);
 		return 0;
 	}
-	freepart(p);
 	return ret;
 }
 
@@ -188,6 +194,7 @@ diskarenapart(HConnect *c, char *disk, Part *p)
 	uchar *blk;
 	vlong start, end, off;
 	char tbuf[60];
+	Arena *ar;
 
 	hprint(&c->hout, "<h1>arena partition %s</h1>\n", disk);
 
@@ -211,6 +218,7 @@ diskarenapart(HConnect *c, char *disk, Part *p)
 		hprint(&c->hout, "no such arena %s\n", arenaname);
 		goto out;
 	}
+	ar = findarena(arenaname);
 
 	hprint(&c->hout, "<h2>arena %s</h2>\n", arenaname);
 	hprint(&c->hout, "<pre>start=%#llx end=%#llx<pre>\n", start, end);
@@ -278,9 +286,9 @@ diskarenapart(HConnect *c, char *disk, Part *p)
 		arena.diskstats.sealed);
 	hprint(&c->hout, "memstats:\n");
 	hprint(&c->hout, "\tclumps=%,d cclumps=%,d used=%,lld uncsize=%,lld sealed=%d\n",
-		arena.memstats.clumps, arena.memstats.cclumps,
-		arena.memstats.used, arena.memstats.uncsize,
-		arena.memstats.sealed);
+		ar->memstats.clumps, ar->memstats.cclumps,
+		ar->memstats.used, ar->memstats.uncsize,
+		ar->memstats.sealed);
 	if(arena.clumpmax == 0){
 		hprint(&c->hout, "bad clumpmax\n");
 		goto out;
@@ -291,11 +299,11 @@ diskarenapart(HConnect *c, char *disk, Part *p)
 
 	if(clump[0]){
 		off = strtoull(clump, 0, 0);
-		diskarenaclump(c, &arena, off, score[0] ? score : nil);
+		diskarenaclump(c, ar, off, score[0] ? score : nil);
 	}else if(score[0]){
-		diskarenaclump(c, &arena, -1, score);
+		diskarenaclump(c, ar, -1, score);
 	}else{
-		diskarenatoc(c, &arena);
+		diskarenatoc(c, ar);
 	}
 
 out:
@@ -353,6 +361,7 @@ diskarenatoc(HConnect *c, Arena *arena)
 
 	blk = vtmalloc(arena->blocksize);
 	off = arena->base + arena->size;
+	hprint(&c->hout, "clumpmax=%d\n", arena->clumpmax);
 	hprint(&c->hout, "<h2>table of contents</h2>\n");
 	hprint(&c->hout, "<pre>\n");
 	hprint(&c->hout, "%5s %6s %7s %s\n", "type", "size", "uncsize", "score");

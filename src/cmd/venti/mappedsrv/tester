@@ -20,11 +20,12 @@ fn reformat {
 	' >$vtmp/vtmp.conf
 
 	./o.fmtarenas -a 4M -b 8k arenas $vtmp/arena
+	rm $vtmp/venti.log
 	sleep 2
 }
 
 fn venti {
-	./o.mventi -c $vtmp/vtmp.conf >$vtmp/venti.log >[2=1]
+	./o.mventi -c $vtmp/vtmp.conf >>$vtmp/venti.log >[2=1]
 }
 
 fn killventi {

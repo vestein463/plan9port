@@ -32,7 +32,7 @@ threadmaybackground(void)
 	return 1;
 }
 
-static Config config;
+Config config;
 void
 threadmain(int argc, char *argv[])
 {

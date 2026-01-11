@@ -2,7 +2,6 @@
 #include "dat.h"
 #include "fns.h"
 #include <sys/mman.h>
-//#define DRECK
 
 /* this version of arena only works when the arena partition is mmap'ed */
 typedef struct ASum ASum;
@@ -69,8 +68,10 @@ initarena(Part *part, u64int base, u64int size, u32int blocksize)
 		return nil;
 	}
 
-	if(arena->diskstats.sealed && scorecmp(zeroscore, arena->score)==0)
+	if(arena->diskstats.sealed && scorecmp(zeroscore, arena->score)==0) {
+		fprint(2, "should not happen, arena sealed with score zero\n" );
 		sealarena(arena);
+	}
 	if(arena->diskstats.sealed)
 		mprotect(arena->part->mapped+arena->base,arena->size,PROT_READ);
 
@@ -232,7 +233,7 @@ writearena(Arena *arena, u64int aa, u8int *clbuf, u32int n)
 		seterr(EOk, "writing beyond arena clump storage");
 		return -1;
 	}
-	a_wr(arena->part->mapped+aa,clbuf, n);
+	memmove(arena->part->mapped+aa,clbuf, n);
 
 	qunlock(&arena->lock);
 	return n;
@@ -258,16 +259,16 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 		if(!arena->memstats.sealed){
 			logerr(EOk, "seal memstats %s", arena->name);
 			arena->memstats.sealed = 1;
-//			wbarena(arena);
 		}
 		qunlock(&arena->lock);
+		sealarena(arena);
 		return TWID64;
 	}
 	if(packclump(c, &clbuf[0], arena->clumpmagic) < 0){
 		qunlock(&arena->lock);
 		return TWID64;
 	}
-	a_wr(arena->part->mapped+arena->base+aa,clbuf, n);
+	memmove(arena->part->mapped+arena->base+aa,clbuf, n);
 
 	arena->memstats.used += c->info.size + ClumpSize;
 	arena->memstats.uncsize += c->info.uncsize;
@@ -292,7 +293,8 @@ static void
 sealarena(Arena *arena)
 {
 	arena->inqueue = 1;
-	backsumarena(arena);
+	sumarena(arena);
+//	backsumarena(arena);
 }
 
 void
@@ -352,7 +354,12 @@ sumarena(Arena *arena)
 	bs = MaxIoSize;
 	if(bs < arena->blocksize)
 		bs = arena->blocksize;
+	qlock(&arena->lock);
+fprint(2, "memstats.used %ulld, diskstats.used %ulld\n", arena->memstats.used, arena->diskstats.used);
+	arena->diskstats = arena->memstats;
+	qunlock(&arena->lock);
 	syncarena(arena, TWID32, 1, 1);
+	msync(arena->part->mapped+arena->base,arena->size,MS_SYNC);
 
 	/*
 	 * read & sum all blocks except the last one
@@ -363,6 +370,7 @@ sumarena(Arena *arena)
 	 */
 	a = arena->base - arena->blocksize;
 	e = arena->size +2*arena->blocksize - VtScoreSize;
+fprint(2, "a %llx, e %llx\n", a, e);
 	sha1(arena->part->mapped+a, e, nil, &s );
 	sha1(zeroscore, VtScoreSize, nil, &s);
 	sha1(nil, 0, score, &s);
@@ -374,7 +382,6 @@ sumarena(Arena *arena)
 	&& scorecmp(zeroscore, arena->part->mapped+a+e) != 0)
 		logerr(EOk, "overwriting mismatched checksums for arena=%s, found=%V calculated=%V",
 			arena->name, arena->part->mapped+a+e, score);
-
 	qlock(&arena->lock);
 	scorecp(arena->score, score);
 	if(scorecmp(score, arena->part->mapped+a+e) != 0)

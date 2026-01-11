@@ -92,24 +92,20 @@ initarenapart(Part *part)
 {
 	AMapN amn;
 	ArenaPart *ap;
-	ZBlock *b;
 	u32int i;
 	int ok;
+	uint8 *bdata[HeadSize];
 
-	b = alloczblock(HeadSize, 0, 0);
-	if(b == nil || readpart(part, PartBlank, b->data, HeadSize) < 0){
+	if(readpart(part, PartBlank, bdata, HeadSize) < 0){
 		seterr(EAdmin, "can't read arena partition header: %r");
 		return nil;
 	}
 
 	ap = MKZ(ArenaPart);
-	if(ap == nil){
-		freezblock(b);
+	if(ap == nil)
 		return nil;
-	}
 	ap->part = part;
-	ok = unpackarenapart(ap, b->data);
-	freezblock(b);
+	ok = unpackarenapart(ap, bdata);
 	if(ok < 0){
 		freearenapart(ap, 0);
 		return nil;

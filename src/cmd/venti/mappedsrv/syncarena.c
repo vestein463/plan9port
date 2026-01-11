@@ -122,6 +122,7 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 		if(cl.info.size < cl.info.uncsize)
 			arena->memstats.cclumps++;
 	}
+	arena->diskstats = arena->memstats;
 
 	if(flush){
 		trace(TraceProc, "syncarena flush");
