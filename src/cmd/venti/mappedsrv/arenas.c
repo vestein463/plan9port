@@ -94,7 +94,7 @@ initarenapart(Part *part)
 	ArenaPart *ap;
 	u32int i;
 	int ok;
-	uint8 *bdata[HeadSize];
+	u8int bdata[HeadSize];
 
 	if(readpart(part, PartBlank, bdata, HeadSize) < 0){
 		seterr(EAdmin, "can't read arena partition header: %r");
@@ -296,6 +296,8 @@ maparenas(AMap *am, Arena **arenas, int n, char *what)
 	return 0;
 }
 
+static int parseamap(IFile *f, AMapN *amn);
+
 int
 readarenamap(AMapN *amn, Part *part, u64int base, u32int size)
 {
@@ -337,7 +339,7 @@ wbarenamap(AMap *am, int n, Part *part, u64int base, u64int size)
  * amapelem: name '\t' astart '\t' astop '\n'
  * astart, astop: u64int
  */
-int
+static int
 parseamap(IFile *f, AMapN *amn)
 {
 	AMap *am;
