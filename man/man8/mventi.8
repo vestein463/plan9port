@@ -1,0 +1,148 @@
+.TH VENTI 8
+.SH NAME
+mventi \- archival storage server , memory based index
+.SH SYNOPSIS
+.in +0.25i
+.ti -0.25i
+.B venti/mventi
+[
+.B -Ldrs
+]
+[
+.B -a
+.I address
+]
+[
+.B -B
+.I blockcachesize
+]
+[
+.B -c
+.I config
+]
+[
+.B -C
+.I lumpcachesize
+]
+[
+.B -h
+.I httpaddress
+]
+[
+.B -I
+.I indexcachesize
+]
+[
+.B -W
+.I webroot
+]
+.SH DESCRIPTION
+.I Mventi
+is a SHA1-addressed archival storage server similar to venti(8)
+See 
+.MR venti 7
+for a full introduction to the system.
+This page documents the structure and operation of the server.
+.PP
+A venti server requires at least one disk or disk partition,
+which must be properly formatted before the server
+can be run.
+.SS Disk 
+The mventi server maintains one disk structure, typically
+stored on raw disk partitions:
+the append-only
+.IR "data log" ,
+which holds, in sequential order,
+the contents of every block written to the server;
+The data log is the primary storage.
+.PP
+The data log is logically split into sections called
+.IR arenas ,
+typically sized for easy offline backup
+(e.g., 500MB).
+A data log may comprise many disks, each storing
+one or more arenas.
+Such disks are called
+.IR "arena partitions" .
+Arena partitions are filled in the order given in the configuration.
+.PP
+.SS Memory
+Venti can make effective use of large amounts of memory
+for the index and the lump and block caches.
+.PP
+The
+.I "lump cache
+holds recently-accessed venti data blocks, which the server refers to as 
+.IR lumps .
+The lump cache should be at least 1MB but can profitably be much larger.
+The lump cache can be thought of as the level-1 cache:
+read requests handled by the lump cache can
+be served instantly.
+.SS Network
+The venti server announces two network services, one 
+(conventionally TCP port 
+.BR venti ,
+17034) serving
+the venti protocol as described in
+.MR venti 7 ,
+and one serving HTTP
+(conventionally TCP port 
+.BR http ,
+8901).
+.PP
+The mventi web server provides the same 
+URLs for accessing status information as the venti(8) server.
+.SS Configuration File
+For mventi the configuration file is not necessary any more.
+.SS Command Line
+Additional options are:
+.TF "\fL-c\fI config"
+.PD
+.TP
+.BI -c " config
+The server configuration file
+(default
+.BR venti.conf )
+.TP
+.B -d
+Produce various debugging information on standard error.
+Implies
+.BR -s .
+.TP
+.B -L
+Enable logging.  By default all logging is disabled.
+Logging slows server operation considerably.
+.TP
+.B -r
+Allow only read access to the venti data.
+.TP
+.B -s
+Do not run in the background.
+Normally,
+the foreground process will exit once the Mventi server
+is initialized and ready for connections.
+.PD
+.SH EXAMPLE
+.PP
+Start the server and check the storage statistics:
+.IP
+.EX
+% venti/mventi /home/data/arena
+% hget http://$sysname/storage
+.EE
+.SH SOURCE
+.B \*9/src/cmd/venti/srv
+.SH "SEE ALSO"
+.MR venti 1 ,
+.MR venti 3 ,
+.MR venti 7 ,
+.MR venti 8 ,
+.MR venti-backup 8
+.MR venti-fmt 8
+.br
+Sean Quinlan and Sean Dorward,
+``Venti: a new approach to archival storage'',
+.I "Usenix Conference on File and Storage Technologies" ,
+2002.
+.SH BUGS
+Setting up a venti server was too complicated.
