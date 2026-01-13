@@ -12,60 +12,11 @@ enum {
 int
 readifile(IFile *f, char *name)
 {
-	Part *p;
 	ZBlock *b;
-	u8int *z;
 
-	p = initpart(name, OREAD);
-	if(p == nil)
+	b = readfile(name);
+	if(b == nil)
 		return -1;
-	b = alloczblock(Maxconfig+1, 1, 0);
-	if(b == nil){
-		seterr(EOk, "can't alloc for %s: %R", name);
-		return -1;
-	}
-	if(p->size > PartBlank){
-		/*
-		 * this is likely a real venti partition, in which case we're
-		 * looking for the config file stored as 8k at end of PartBlank.
-		 */
-		if(readpart(p, PartBlank-Maxconfig, b->data, Maxconfig) < 0){
-			seterr(EOk, "can't read %s: %r", name);
-			freezblock(b);
-			freepart(p);
-			return -1;
-		}
-		b->data[Maxconfig] = '\0';
-		if(memcmp(b->data, vcmagic, Maglen) != 0){
-			seterr(EOk, "bad venti config magic in %s", name);
-			freezblock(b);
-			freepart(p);
-			return -1;
-		}
-		/*
-		 * if we change b->data+b->_size, freezblock
-		 * will blow an assertion, so don't.
-		 */
-		b->data  += Maglen;
-		b->_size -= Maglen;
-		b->len   -= Maglen;
-		z = memchr(b->data, '\0', b->len);
-		if(z)
-			b->len = z - b->data;
-	}else if(p->size > Maxconfig){
-		seterr(EOk, "config file is too large");
-		freepart(p);
-		freezblock(b);
-		return -1;
-	}else{
-		freezblock(b);
-		b = readfile(name);
-		if(b == nil){
-			freepart(p);
-			return -1;
-		}
-	}
-	freepart(p);
 	f->name = name;
 	f->b = b;
 	f->pos = 0;

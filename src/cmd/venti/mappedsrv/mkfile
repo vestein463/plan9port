@@ -9,6 +9,7 @@ LIBOFILES=\
 	hdisk.$O\
 	hproc.$O\
 	httpd.$O\
+	ifile.$O\
 	lump.$O\
 	lumpcache.$O\
 	part.$O\

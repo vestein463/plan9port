@@ -191,7 +191,7 @@ assert(scotable==0 || memcmp(scotable+scotabwd*(actb*256+tr),oldscore+2,scotabwd
 
 /* trie_print prints (part of the) input file in lexical order. */
 static void trie_print0(unsigned short int t) {
-	IEntry ie;
+//	IEntry ie;
 	Arena *arena;
         ClumpInfo ci;
         u64int aa=0;
@@ -204,8 +204,8 @@ static void trie_print0(unsigned short int t) {
                 if(arena!=nil) {
                         readarena(arena,aa+4,buf,ClumpInfoSize);
                         unpackclumpinfo(&ci, buf);
-                        ie.ia.type = ci.type;
-                        ie.ia.size = ci.uncsize;
+//                        ie.ia.type = ci.type;
+//                        ie.ia.size = ci.uncsize;
 			print("%V %20ulld%3x%6ud\n", ci.score, aa, ci.type, ci.size);
                 } else fprint(2, "illegal addr: %ullx\n", act->leaves[tr].addr );
 	} else {

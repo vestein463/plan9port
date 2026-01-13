@@ -651,6 +651,13 @@ dindex(HConnect *c)
 	hprint(hout, "index=%s version=%d blocksize=%d tabsize=%d\n",
 		ix->name, ix->version, ix->blocksize, ix->tabsize);
 	hprint(hout, "\tbuckets=%d div=%d\n", ix->buckets, ix->div);
+	for(int i = 0; i < ix->narenas; i++){
+                if(ix->arenas[i] != nil && ix->arenas[i]->memstats.clumps != 0){
+                        hprint(hout, "arena=%s at index [%lld,%lld)\n\t", ix->amap[i].name, ix->amap[i].start, ix->amap[i].stop);
+                        darena(hout, ix->arenas[i]);
+                }
+        }
+
 	hflush(hout);
 	return 0;
 }

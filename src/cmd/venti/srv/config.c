@@ -2,7 +2,6 @@
 #include "dat.h"
 #include "fns.h"
 
-Index			*mainindex;
 int			paranoid = 1;		/* should verify hashes on disk read */
 
 static ArenaPart	*configarenas(char *file);

@@ -1,6 +1,6 @@
 #!/usr/local/plan9/bin/rc
 
-vtmp=/home/tmp
+vtmp=$HOME/tmp
 venti=tcp!127.1!17034
 url=127.1:8901
 
@@ -28,7 +28,7 @@ fn reformat {
 		httpaddr tcp!*!8901
 	' >$vtmp/vtmp.conf
 
-	./o.fmtarenas -a 40M -b 8k arenas $vtmp/arena
+	./o.fmtarenas -a 4M -b 8k arenas $vtmp/arena
 	./o.fmtbloom $vtmp/bloom
 	./o.fmtisect -b 8k isect $vtmp/isect
 	./o.fmtindex $vtmp/vtmp.conf

@@ -149,7 +149,7 @@ writeqlump(Lump *u, Packet *p, int creator, uint ms)
 		 * assume it was corrupted data and store the block again
 		 */
 		old = readilump(u, &ia, u->score);
-fprint(2, "readilump %llux ia %llux score %V\n", (uvlong)old, ia.addr, u->score);
+fprint(2, "readilump %llux ia %llux score %V\n", old, ia.addr, u->score);
 		if(old != nil){
 			ok = 0;
 			if(packetcmp(p, old) != 0){

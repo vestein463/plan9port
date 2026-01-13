@@ -13,6 +13,8 @@ int nofork=0;
 extern int nowrci;
 int mainstacksize = 256*1024;
 VtSrv *ventisrv;
+Index			*mainindex;
+Config config;
 
 void trie_init(void);
 unsigned int trie_insert(unsigned char *, uvlong*); 
@@ -35,7 +37,22 @@ threadmaybackground(void)
 	return 1;
 }
 
-static Config config;
+static ArenaPart*
+configarenas(char *file)
+{
+	ArenaPart *ap;
+	Part *part;
+
+	if(0) fprint(2, "configure arenas in %s\n", file);
+	part = initpart(file, ORDWR|ODIRECT);
+	if(part == nil)
+		return nil;
+	ap = initarenapart(part);
+	if(ap == nil)
+		werrstr("%s: %r", file);
+	return ap;
+}
+
 void
 threadmain(int argc, char *argv[])
 {
@@ -44,12 +61,13 @@ threadmain(int argc, char *argv[])
 
 	traceinit();
 	threadsetname("main");
-	vaddr = nil;
-	haddr = nil;
+	maxblocksize =4096;
+	vaddr = "tcp!127.1!17034";
+	haddr = "tcp!127.1!8901";
 	configfile = nil;
 	webroot = nil;
-	mem = 0;
-	bcmem = 0;
+	mem = 64*1024*1024;
+	bcmem = 10*1024*1024;
 	ARGBEGIN{
 	case 'a':
 		vaddr = EARGF(usage());
@@ -95,8 +113,18 @@ threadmain(int argc, char *argv[])
 		usage();
 	}ARGEND
 
-	if(argc)
-		usage();
+	if(argc) {
+		config.index = estrdup("main");
+		config.naparts = argc;
+		config.aparts = MKN(ArenaPart*, config.naparts);
+	}
+	int i = 0;
+	while(argc) {
+		argc--;
+		config.aparts[i] = configarenas(argv[0]);
+		i++;
+		argv++;
+	}
 
 	if(!nofork)
 		rfork(RFNOTEG);
@@ -115,9 +143,7 @@ threadmain(int argc, char *argv[])
 	trace(TraceQuiet, "venti started");
 	fprint(2, "%T venti: ");
 
-	if(configfile == nil)
-		configfile = "venti.conf";
-
+	if(configfile != nil) {
 	fprint(2, "conf...");
 	if(initventi(configfile, &config) < 0)
 		sysfatal("can't init server: %r");
@@ -137,6 +163,9 @@ threadmain(int argc, char *argv[])
 	if(queuewrites == 0)
 		queuewrites = config.queuewrites;
 	fprint(2, "confdone...");
+	} else {
+		mainindex = initindex(config.index, 0, 0);
+	}
 
 	if(haddr){
 		fprint(2, "httpd %s...", haddr);

@@ -280,6 +280,7 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 	arena->wtime = now();
 	if(arena->ctime == 0)
 		arena->ctime = arena->wtime;
+//	writeclumpinfo(arena, clump, &c->info);
 	qunlock(&arena->lock);
 	return aa;
 }
@@ -359,7 +360,7 @@ fprint(2, "memstats.used %ulld, diskstats.used %ulld\n", arena->memstats.used, a
 	arena->diskstats = arena->memstats;
 	qunlock(&arena->lock);
 	syncarena(arena, TWID32, 1, 1);
-	msync(arena->part->mapped+arena->base,arena->size,MS_SYNC);
+//	msync(arena->part->mapped+arena->base,arena->size,MS_SYNC);
 
 	/*
 	 * read & sum all blocks except the last one
@@ -370,6 +371,8 @@ fprint(2, "memstats.used %ulld, diskstats.used %ulld\n", arena->memstats.used, a
 	 */
 	a = arena->base - arena->blocksize;
 	e = arena->size +2*arena->blocksize - VtScoreSize;
+	uchar *trailer = arena->part->mapped + arena->base + arena->size;
+	packarena(arena, trailer);
 fprint(2, "a %llx, e %llx\n", a, e);
 	sha1(arena->part->mapped+a, e, nil, &s );
 	sha1(zeroscore, VtScoreSize, nil, &s);
@@ -574,6 +577,10 @@ DBlock *getdblock(Part *part, u64int addr, int mode){
 void flushdcache(void) {
 	if( mainindex->arenas[0]==0 || mainindex->arenas[0]->part==0) 
 		{ threadexitsall( "flushd failed\n" );}
+#ifndef XXX
+if( mainindex->arenas[0]->part != config.aparts[0]->part )
+	fprint(2, "partition trouble\n");
+#endif
 	fprint(2, "flushdcache %llx %ulld\n",
 		mainindex->arenas[0]->part->mapped,mainindex->arenas[0]->part->size);
 	msync(mainindex->arenas[0]->part->mapped,mainindex->arenas[0]->part->size,MS_SYNC);

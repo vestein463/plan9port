@@ -12,6 +12,7 @@ int debug;
 int nofork;
 int mainstacksize = 256*1024;
 VtSrv *ventisrv;
+Index *mainindex;
 
 static void	ventiserver(void*);
 

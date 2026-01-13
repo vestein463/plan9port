@@ -691,6 +691,7 @@ struct Round
 };
 
 extern	Index		*mainindex;
+extern	Config		config;
 extern	u32int		maxblocksize;		/* max. block size used by any partition */
 extern	int		paranoid;		/* should verify hashes on disk read */
 extern	int		queuewrites;		/* put all lump writes on a queue and finish later */
