@@ -13,7 +13,6 @@ int nofork=0;
 extern int nowrci;
 int mainstacksize = 256*1024;
 VtSrv *ventisrv;
-Index			*mainindex;
 Config config;
 
 void trie_init(void);
@@ -357,13 +356,6 @@ fmtindex(Config *conf, Index *ix)
 				if(0) fprint(2, "add arena %s at [%lld,%lld)\n",
 					amap[n].name, amap[n].start, amap[n].stop);
 			}
-#ifdef XXX
-	for(u64int j=0; j<amn.n;j++) {
-		amn.map[j].start = j<<48;
-		amn.map[j].stop = (j+1)<<48;
-	}	
-	amn.map[0].start = 1048576;
-#endif
 			n++;
 		}
 	}
@@ -416,7 +408,7 @@ writeiclump(Index *ix, Clump *c, u8int *clbuf)
 	u64int a;
 	int i;
 	IAddr ia;
-	AState as;
+//	AState as;
 
 	ia.addr = 0;
 // this should not happen, but it does ZZZ
@@ -433,9 +425,9 @@ if(h!=~0) fprint(2,"h: %ux, %llux %V\n", h, ia.addr, c->info.score);
 			ia.type = c->info.type;
 			ia.size = c->info.uncsize;
 			ia.blocks = (c->info.size + ClumpSize + (1<<ABlockLog) - 1) >> ABlockLog;
-			as.arena = ix->arenas[i];
-			as.aa = ia.addr;
-			as.stats = as.arena->memstats;
+//			as.arena = ix->arenas[i];
+//			as.aa = ia.addr;
+//			as.stats = as.arena->memstats;
 			trie_insert(c->info.score,&ia.addr);
 			qunlock(&ix->writing);
 			trace(TraceLump, "writeiclump exit");
@@ -456,7 +448,7 @@ Arena*
 amapitoa(Index *ix, u64int a, u64int *aa)
 {
 #ifdef XXX
-	*aa = a& ~(0xFFFFULL<<48);
+	*aa = a & 0xFFFFFFFFULL;
 	return ix->arenas[(int)(a>>48)];
 #else
 	int i, r, l, m;
@@ -485,6 +477,7 @@ print("want arena %d for %llux\n", l, a);
 		return nil;
 	}
 	*aa = a - ix->amap[l].start;
+	assert(*aa < 0x1ULL<<48 );
 	return ix->arenas[l];
 #endif
 }

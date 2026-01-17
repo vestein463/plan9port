@@ -15,8 +15,6 @@ struct ASum
 static void	sealarena(Arena *arena);
 static int	okarena(Arena *arena);
 static int	loadarena(Arena *arena);
-static CIBlock	*getcib(Arena *arena, int clump, int writing, CIBlock *rock);
-static void	putcib(Arena *arena, CIBlock *cib);
 static void	sumproc(void *);
 
 static QLock	sumlock;
@@ -129,39 +127,12 @@ newarena(Part *part, u32int vers, char *name, u64int base, u64int size, u32int b
 int
 readclumpinfo(Arena *arena, int clump, ClumpInfo *ci)
 {
-	CIBlock *cib, r;
-
-	cib = getcib(arena, clump, 0, &r);
-	if(cib == nil)
-		return -1;
-	unpackclumpinfo(ci, &cib->data->data[cib->offset]);
-	putcib(arena, cib);
+	u32int block, off;
+	block = clump / arena->clumpmax;
+	off = (clump - block * arena->clumpmax) * ClumpInfoSize;
+	u64int blockaddr = arena->base+arena->size-(block+1)*arena->blocksize;
+	unpackclumpinfo(ci, arena->part->mapped+blockaddr+off);
 	return 0;
-}
-
-int
-readclumpinfos(Arena *arena, int clump, ClumpInfo *cis, int n)
-{
-	CIBlock *cib, r;
-	int i;
-
-	/*
-	 * because the clump blocks are laid out
-	 * in reverse order at the end of the arena,
-	 * it can be a few percent faster to read
-	 * the clumps backwards, which reads the
-	 * disk blocks forwards.
-	 */
-	for(i = n-1; i >= 0; i--){
-		cib = getcib(arena, clump + i, 0, &r);
-		if(cib == nil){
-			n = i;
-			continue;
-		}
-		unpackclumpinfo(&cis[i], &cib->data->data[cib->offset]);
-		putcib(arena, cib);
-	}
-	return n;
 }
 
 /*
@@ -171,14 +142,10 @@ readclumpinfos(Arena *arena, int clump, ClumpInfo *cis, int n)
 int
 writeclumpinfo(Arena *arena, int clump, ClumpInfo *ci)
 {
-	CIBlock *cib, r;
-
-	cib = getcib(arena, clump, 1, &r);
-	if(cib == nil)
-		return -1;
-//	dirtydblock(cib->data, DirtyArenaCib);
-	packclumpinfo(ci, &cib->data->data[cib->offset]);
-	putcib(arena, cib);
+	u32int block = clump / arena->clumpmax;
+	u32int off = (clump - block * arena->clumpmax) * ClumpInfoSize;
+	u64int blockaddr = arena->base+arena->size-(block+1)*arena->blocksize;
+	packclumpinfo(ci, arena->part->mapped+blockaddr+off);
 	return 0;
 }
 
@@ -352,6 +319,7 @@ sumarena(Arena *arena)
 	u32int bs;
 	u8int score[VtScoreSize];
 
+fprint(2, "sumarena\n" );
 	bs = MaxIoSize;
 	if(bs < arena->blocksize)
 		bs = arena->blocksize;
@@ -524,48 +492,7 @@ okarena(Arena *arena)
 	 */
 	return ok;
 }
-
-static CIBlock*
-getcib(Arena *arena, int clump, int writing, CIBlock *rock)
-{
-	int mode;
-	CIBlock *cib;
-	u32int block, off;
-
-	if(clump >= arena->memstats.clumps){
-		seterr(EOk, "clump directory access out of range");
-		return nil;
-	}
-	block = clump / arena->clumpmax;
-	off = (clump - block * arena->clumpmax) * ClumpInfoSize;
-	cib = rock;
-	cib->block = block;
-	cib->offset = off;
-
-	if(writing){
-		if(off == 0 && clump == arena->memstats.clumps-1)
-			mode = OWRITE;
-		else
-			mode = ORDWR;
-	}else
-		mode = OREAD;
-
-	cib->data = getdblock(arena->part,
-		arena->base + arena->size - (block + 1) * arena->blocksize, mode);
-	if(cib->data == nil)
-		return nil;
-	return cib;
-}
-
-static void
-putcib(Arena *arena, CIBlock *cib)
-{
-	USED(arena);
-
-	putdblock(cib->data);
-	cib->data = nil;
-}
-
+#ifdef DRECK
 /* these are from dcache.c */
 DBlock staticdblock;
 DBlock *getdblock(Part *part, u64int addr, int mode){
@@ -574,6 +501,7 @@ DBlock *getdblock(Part *part, u64int addr, int mode){
 	staticdblock.data= part->mapped+addr;
 	return &staticdblock;
 }
+#endif
 void flushdcache(void) {
 	if( mainindex->arenas[0]==0 || mainindex->arenas[0]->part==0) 
 		{ threadexitsall( "flushd failed\n" );}

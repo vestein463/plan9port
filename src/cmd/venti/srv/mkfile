@@ -54,7 +54,6 @@ TARG=\
 	venti\
 	mventi\
 	buildindex\
-	buildtrie\
 	checkarenas\
 	checkindex\
 	clumpstats\

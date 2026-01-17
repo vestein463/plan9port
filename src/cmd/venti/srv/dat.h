@@ -369,7 +369,7 @@ struct Arena
 	u8int		score[VtScoreSize];	/* score of the entire sealed & summed arena */
 
 	int		clumpmax;		/* ClumpInfos per block */
-	AState		mem;
+//	AState		mem;
 	int		inqueue;
 
 	/*

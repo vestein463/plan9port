@@ -2,19 +2,17 @@
 
 vtmp=$HOME/tmp
 venti=tcp!127.1!17034
-url=127.1:8901
+url=tcp!127.1!8901
 
 fn reformat {
 	if(! test -f $vtmp/arena)
 		dd bs'='1048576 count'='100 if'='/dev/zero of'='$vtmp/arena
 
-	./o.fmtarenas -a 4M -b 8k arenas $vtmp/arena
-	rm $vtmp/venti.log
-	sleep 2
+	venti/fmtarenas -a 4M -b 8k arena. $vtmp/arena
 }
 
 fn venti {
-	./o.mventi -a $venti -h $url $vtmp/arena >>$vtmp/venti.log >[2=1]
+	./o.mventi -a $venti -h $url $vtmp/arena >$vtmp/venti.log >[2=1]
 }
 
 fn killventi {

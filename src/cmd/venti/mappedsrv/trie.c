@@ -3,6 +3,8 @@
 #include "fns.h"
 int loadclumpinfo(uvlong addr, ClumpInfo *ci);
 
+//#define XXX
+
 /* 
    Some variables are static. To be threadsafe, accesses are to be qlocked.
 */
@@ -344,10 +346,11 @@ static void
 arenapartproc(void *v)
 {
 	int i, j, n, nskip;
-	u32int clump;
+	int clump;
 	uvlong addr, tot;
 	Arena *a;
 	ClumpInfo *ci, *cis;
+	ClumpInfo cilocal;
 	IEntry ie;
 	Part *p;
 
@@ -372,29 +375,24 @@ arenapartproc(void *v)
 		 * This speeds things slightly.
 		 */
 		addr = ix->amap[i].start + a->memstats.used;
-		for(clump=a->memstats.clumps; clump > 0; clump-=n){
-			n = ClumpChunks;
-			if(n > clump)
-				n = clump;
-			if(readclumpinfos(a, clump-n, cis, n) != n){
+		ci = &cilocal;
+		for(clump=a->memstats.clumps;clump > 0;){
+			--clump;
+			if(readclumpinfo(a, clump, ci ) != 0){
 				fprint(2, "%T arena %s: directory read: %r\n", a->name);
 				errors = 1;
 				break;
 			}
-			for(j=n-1; j>=0; j--){
-				ci = &cis[j];
-				ie.ia.type = ci->type;
-				ie.ia.size = ci->uncsize;
-				addr -= ci->size + ClumpSize;
-				ie.ia.addr = addr;
-				ie.ia.blocks = (ci->size + ClumpSize + (1<<ABlockLog)-1) >> ABlockLog;
-				scorecp(ie.score, ci->score);
-				if(ci->type == VtCorruptType)
-					nskip++;
-				else{
-					(void)trie_insert(ie.score,&ie.ia.addr);
-					tot++;
-				}
+			ie.ia.type = ci->type;
+			ie.ia.size = ci->uncsize;
+			addr -= ci->size + ClumpSize;
+			ie.ia.addr = addr;
+			scorecp(ie.score, ci->score);
+			if(ci->type == VtCorruptType)
+				nskip++;
+			else{
+				(void)trie_insert(ie.score,&ie.ia.addr);
+				tot++;
 			}
 		}
 		if(addr != ix->amap[i].start)

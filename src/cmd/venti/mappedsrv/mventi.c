@@ -6,7 +6,7 @@
 #include "dat.h"
 #include "fns.h"
 
-//#define XXX
+#define XXX
 
 int debug=0;
 int nofork=0;
@@ -22,7 +22,7 @@ void
 usage(void)
 {
 	fprint(2, "usage: mventi [-Ldrs] [-a address] [-B blockcachesize] [-c config] "
-"[-C lumpcachesize] [-h httpaddress] [-I initialclumps] [-W webroot]\n");
+"[-C lumpcachesize] [-h httpaddress] [-I initialclumps] [-W webroot] [-A arenasize]\n");
 	threadexitsall("usage");
 }
 
@@ -62,6 +62,9 @@ threadmain(int argc, char *argv[])
 	webroot = nil;
 	mem = 1024*1024;
 	ARGBEGIN{
+	case 'A':
+		(void) unittoull(EARGF(usage()));
+		break;
 	case 'a':
 		vaddr = EARGF(usage());
 		break;

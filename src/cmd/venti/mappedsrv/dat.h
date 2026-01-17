@@ -39,7 +39,9 @@ enum
 	 * formerly fundamental constant,
 	 * now a server-imposed limitation.
 	 */
+#ifdef PLAN9PORT
 	VtMaxLumpSize	= 56*1024,
+#endif
 
 	ABlockLog		= 9,		/* log2(512), the quantum for reading arenas */
 	ANameSize		= 64,

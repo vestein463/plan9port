@@ -1,6 +1,9 @@
 #include "stdinc.h"
 #include "dat.h"
 #include "fns.h"
+
+//#define XXX
+
 int loadclumpinfo(uvlong addr, ClumpInfo *ci);
 
 /* 
@@ -375,7 +378,13 @@ arenapartproc(void *v)
 		 * stored in reverse order at the end of the arena.
 		 * This speeds things slightly.
 		 */
+#ifdef XXX
+		addr = ((uvlong)i)<<48 + a->memstats.used;
+		fprint(2, "addr: %llx ", addr );
+		fprint(2, "used: %ull, clumps: %d\n", a->memstats.used, a->memstats.clumps );
+#else
 		addr = ix->amap[i].start + a->memstats.used;
+#endif  
 		for(clump=a->memstats.clumps; clump > 0; clump-=n){
 			n = ClumpChunks;
 			if(n > clump)
@@ -401,10 +410,15 @@ arenapartproc(void *v)
 				}
 			}
 		}
+#ifdef XXX
+		fprint(2, "start: %ullx\n", addr );
+		assert(addr == ((uvlong)i)<<48);
+#else
 		if(addr != ix->amap[i].start)
 			fprint(2, "%T arena %s: clump miscalculation %ulld != %ulld\n", a->name, addr, ix->amap[i].start);
 // this error makes mventi unusable
 		assert(addr == ix->amap[i].start);
+#endif
 	}
 	static Lock l;
 	lock(&l);

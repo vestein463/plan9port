@@ -10,14 +10,7 @@ void needzeroscore(void) { }
 void
 scoremem(u8int *score, u8int *buf, int n)
 {
-#ifdef DRECK
-	DigestState s;
-
-	memset(&s, 0, sizeof s);
-	sha1(buf, n, score, &s);
-#else
 	sha1(buf, n, score, nil);
-#endif
 }
 
 static int

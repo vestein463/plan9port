@@ -16,6 +16,7 @@
 #include "dat.h"
 #include "fns.h"
 
+Index	*mainindex;
 u32int	maxblocksize;
 #pragma weak readonly
 int	readonly;
