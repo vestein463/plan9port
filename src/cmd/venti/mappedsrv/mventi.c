@@ -289,6 +289,7 @@ fmtindex(Config *conf, Index *ix)
 	ix->arenas = arenas;
 
 	addr = IndexBase;
+	addr = 0;
 	int n = 0;
 	for(int i = 0; i < conf->naparts; i++){
 		ap = conf->aparts[i];

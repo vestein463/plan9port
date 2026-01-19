@@ -346,7 +346,7 @@ static void
 arenapartproc(void *v)
 {
 	int i, j, n, nskip;
-	int clump;
+	uint32 clump;
 	uvlong addr, tot;
 	Arena *a;
 	ClumpInfo *ci, *cis;

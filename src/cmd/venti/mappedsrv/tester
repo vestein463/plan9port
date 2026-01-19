@@ -2,7 +2,8 @@
 
 vtmp=$HOME/tmp
 venti=tcp!127.1!17034
-url=tcp!127.1!8901
+http=tcp!127.1!8901
+url=127.1:8901
 
 fn reformat {
 	if(! test -f $vtmp/arena)
@@ -12,7 +13,7 @@ fn reformat {
 }
 
 fn venti {
-	./o.mventi -a $venti -h $url $vtmp/arena >$vtmp/venti.log >[2=1]
+	./o.mventi -a $venti -h $http $vtmp/arena >$vtmp/venti.log >[2=1]
 }
 
 fn killventi {

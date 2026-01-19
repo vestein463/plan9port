@@ -241,13 +241,19 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 	arena->memstats.uncsize += c->info.uncsize;
 	if(c->info.size < c->info.uncsize)
 		arena->memstats.cclumps++;
+if(1){
+	uint32 clump = arena->memstats.clumps;
 	arena->memstats.clumps++;
 	if(arena->memstats.clumps == 0)
 		sysfatal("clumps wrapped");
 	arena->wtime = now();
 	if(arena->ctime == 0)
 		arena->ctime = arena->wtime;
-//	writeclumpinfo(arena, clump, &c->info);
+	writeclumpinfo(arena, clump, &c->info);
+	arena->wtime = now();
+	if(arena->ctime == 0)if(arena->ctime == 0)
+		arena->ctime = arena->wtime;
+}
 	qunlock(&arena->lock);
 	return aa;
 }
