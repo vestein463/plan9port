@@ -6,8 +6,6 @@
 #include "dat.h"
 #include "fns.h"
 
-#define XXX
-
 int debug=0;
 int nofork=0;
 int mainstacksize = 256*1024;
@@ -313,6 +311,7 @@ fmtindex(Config *conf, Index *ix)
 				namecp(amap[n].name, ap->arenas[j]->name);
 			}
 			n++;
+			addr = (uvlong)n <<48;
 		}
 	}
 	ix->narenas = narenas;

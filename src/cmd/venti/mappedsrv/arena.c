@@ -131,7 +131,10 @@ readclumpinfo(Arena *arena, int clump, ClumpInfo *ci)
 	block = clump / arena->clumpmax;
 	off = (clump - block * arena->clumpmax) * ClumpInfoSize;
 	u64int blockaddr = arena->base+arena->size-(block+1)*arena->blocksize;
-	unpackclumpinfo(ci, arena->part->mapped+blockaddr+off);
+	if( blockaddr == arena->iba )
+		unpackclumpinfo(ci, arena->ib+off);
+	else
+		unpackclumpinfo(ci, arena->part->mapped+blockaddr+off);
 	return 0;
 }
 
@@ -139,13 +142,27 @@ readclumpinfo(Arena *arena, int clump, ClumpInfo *ci)
  * write directory information for one clump
  * must be called the arena locked
  */
+static void putclumpinfo( Arena *arena ) {
+	if(arena->iba != 0) {
+		memmove( arena->part->mapped+arena->iba, arena->ib, 8192);
+		msync( arena->part->mapped+arena->iba, 8192, MS_SYNC);
+		memset(arena->ib, 0, 8192);
+		arena->iba = 0;
+	}
+}
+
 int
 writeclumpinfo(Arena *arena, int clump, ClumpInfo *ci)
 {
 	u32int block = clump / arena->clumpmax;
 	u32int off = (clump - block * arena->clumpmax) * ClumpInfoSize;
-	u64int blockaddr = arena->base+arena->size-(block+1)*arena->blocksize;
-	packclumpinfo(ci, arena->part->mapped+blockaddr+off);
+	if( arena->ib == nil )
+		arena->ib = MKNZ(u8int, 8192);
+	if( off == 0) 
+		arena->iba = arena->base+arena->size-(block+1)*arena->blocksize;
+	packclumpinfo(ci, arena->ib+off);
+	if( off > 8192-2*ClumpInfoSize )
+		putclumpinfo( arena );
 	return 0;
 }
 
@@ -219,6 +236,7 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 	u64int aa;
 
 	n = c->info.size + ClumpSize + U32Size;
+	if(arena->diskstats.sealed) return TWID64;
 	qlock(&arena->lock);
 	aa = arena->memstats.used;
 	if(arena->memstats.sealed
@@ -227,6 +245,7 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 			logerr(EOk, "seal memstats %s", arena->name);
 			arena->memstats.sealed = 1;
 		}
+		putclumpinfo( arena );
 		qunlock(&arena->lock);
 		sealarena(arena);
 		return TWID64;
@@ -241,7 +260,7 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 	arena->memstats.uncsize += c->info.uncsize;
 	if(c->info.size < c->info.uncsize)
 		arena->memstats.cclumps++;
-if(1){
+
 	uint32 clump = arena->memstats.clumps;
 	arena->memstats.clumps++;
 	if(arena->memstats.clumps == 0)
@@ -253,7 +272,7 @@ if(1){
 	arena->wtime = now();
 	if(arena->ctime == 0)if(arena->ctime == 0)
 		arena->ctime = arena->wtime;
-}
+
 	qunlock(&arena->lock);
 	return aa;
 }
@@ -333,8 +352,7 @@ fprint(2, "sumarena\n" );
 fprint(2, "memstats.used %ulld, diskstats.used %ulld\n", arena->memstats.used, arena->diskstats.used);
 	arena->diskstats = arena->memstats;
 	qunlock(&arena->lock);
-	syncarena(arena, TWID32, 1, 1);
-//	msync(arena->part->mapped+arena->base,arena->size,MS_SYNC);
+	msync(arena->part->mapped+arena->base,arena->size,MS_SYNC);
 
 	/*
 	 * read & sum all blocks except the last one
@@ -346,6 +364,7 @@ fprint(2, "memstats.used %ulld, diskstats.used %ulld\n", arena->memstats.used, a
 	a = arena->base - arena->blocksize;
 	e = arena->size +2*arena->blocksize - VtScoreSize;
 	uchar *trailer = arena->part->mapped + arena->base + arena->size;
+	arena->diskstats.sealed=1;
 	packarena(arena, trailer);
 fprint(2, "a %llx, e %llx\n", a, e);
 	sha1(arena->part->mapped+a, e, nil, &s );
@@ -498,16 +517,7 @@ okarena(Arena *arena)
 	 */
 	return ok;
 }
-#ifdef DRECK
-/* these are from dcache.c */
-DBlock staticdblock;
-DBlock *getdblock(Part *part, u64int addr, int mode){
-	USED(mode);
-//	return part->mapped+addr;
-	staticdblock.data= part->mapped+addr;
-	return &staticdblock;
-}
-#endif
+
 void flushdcache(void) {
 	if( mainindex->arenas[0]==0 || mainindex->arenas[0]->part==0) 
 		{ threadexitsall( "flushd failed\n" );}

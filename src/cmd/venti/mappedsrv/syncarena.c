@@ -32,14 +32,47 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 	ClumpInfo ci;
 	static ClumpInfo zci = { .type = -1 };
 	u8int score[VtScoreSize];
-	u64int uncsize, used, aa;
-	u32int clump, clumps, cclumps, magic;
+	u64int uncsize=0, used=0, aa;
+	u32int clump=0, clumps=0, cclumps=0, magic;
 	int err, flush, broken;
+	if( arena->diskstats.sealed || clumpmagic(arena, 0) == ClumpFreeMagic)
+		return 0;
 
+#ifdef DRECK
 	used = arena->memstats.used;
 	clumps = arena->memstats.clumps;
 	cclumps = arena->memstats.cclumps;
 	uncsize = arena->memstats.uncsize;
+#else
+	u8int *iba = arena->part->mapped+arena->base+arena->size-8192;
+	while( iba[0] && iba < arena->part->mapped+arena->base+used) {
+		for( int i=0; i< arena->clumpmax;i++) {
+			if(iba[25*i] == 0) break;
+			clumps++;
+			used += 256*iba[1+25*i];
+			used += ClumpSize+iba[2+25*i];
+			uncsize += 256*iba[3+25*i];
+			uncsize += iba[4+25*i];
+			cclumps += iba[2+25*i] != iba[4+25*i];
+		}
+		iba -= 8192;
+	}
+
+	fprint(2, "memstats.used %lld, used %lld\n", arena->memstats.used , used);
+	fprint(2, "memstats.clumps %d, clumps %d\n", arena->memstats.clumps , clumps);
+	arena->memstats.used = used;
+	arena->memstats.clumps = clumps;
+	arena->memstats.cclumps = cclumps;
+	arena->memstats.uncsize = uncsize;
+	if( arena->ib == nil )
+		arena->ib = MKNZ(u8int,8192);
+	if( arena->iba == 0) {
+		u32int block = clumps / arena->clumpmax;
+		arena->iba = arena->base+arena->size-(block+1)*arena->blocksize;
+		memmove( arena->ib, arena->part->mapped+arena->iba, 8192);
+	}
+		
+#endif
 	trace(TraceProc, "syncarena start");
 	flush = 0;
 	err = 0;

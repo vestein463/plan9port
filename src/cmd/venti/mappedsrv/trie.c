@@ -3,8 +3,6 @@
 #include "fns.h"
 int loadclumpinfo(uvlong addr, ClumpInfo *ci);
 
-//#define XXX
-
 /* 
    Some variables are static. To be threadsafe, accesses are to be qlocked.
 */

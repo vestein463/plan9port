@@ -359,9 +359,12 @@ struct Arena
 	u64int		size;			/* total space in the arena */
 	u8int		score[VtScoreSize];	/* score of the entire sealed & summed arena */
 
-	int		clumpmax;		/* ClumpInfos per block */
 	AState		mem;
+	u64int		iba;			/* disk loc of ib */
+	u8int		*ib;			/* buffer for arena dir */
+	DigestState	*ds;			/* digest state for sealing */
 	int		inqueue;
+	int		clumpmax;		/* ClumpInfos per block */
 
 	/*
 	 * fields stored on disk
@@ -642,6 +645,7 @@ enum
 };
 
 extern Statdesc statdesc[NStat];
+extern u64int infoblockaddr;
 
 /*
  * statistics about the operation of the server

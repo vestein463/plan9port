@@ -250,6 +250,10 @@ fprint(2, "readilump %llux ia %llux score %V\n", old, ia.addr, u->score);
 Arena*
 amapitoa(Index *ix, u64int a, u64int *aa)
 {
+#ifndef DRECK
+	int l = a>>48;
+	*aa = a & 0xFFFFFFFFFFFFULL;
+#else
 	int i, r, l, m;
 
 	l = 1;
@@ -277,6 +281,7 @@ print("want arena %d for %llux\n", l, a);
 	}
 	*aa = a - ix->amap[l].start;
 //	debugarena = l;
+#endif
 	return ix->arenas[l];
 }
 
