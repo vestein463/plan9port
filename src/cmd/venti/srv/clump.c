@@ -223,3 +223,198 @@ loadclump(Arena *arena, u64int aa, int blocks, Clump *cl, u8int *score, int veri
 */
 	return zb;
 }
+
+/*
+ * write a clump to an available arena in the index
+ * and return the address of the clump within the index.
+ZZZ question: should this distinguish between an arena
+filling up and real errors writing the clump?
+ */
+u64int
+writeiclump(Index *ix, Clump *c, u8int *clbuf)
+{
+	u64int a;
+	int i;
+	IAddr ia;
+//	AState as;
+
+	ia.addr = 0;
+// this should not happen, but it does ZZZ
+	unsigned int h= trie_retrieve(c->info.score,&ia.addr);
+if(h!=~0) fprint(2,"h: %ux, %llux %V\n", h, ia.addr, c->info.score);
+        if(h!=~0) return ia.addr;
+	trace(TraceLump, "writeiclump enter");
+	qlock(&ix->writing);
+	for(i = ix->mapalloc; i < ix->narenas; i++){
+		a = writeaclump(ix->arenas[i], c, clbuf);
+		if(a != TWID64){
+			ix->mapalloc = i;
+			ia.addr = ix->amap[i].start + a;
+			ia.type = c->info.type;
+			ia.size = c->info.uncsize;
+			ia.blocks = (c->info.size + ClumpSize + (1<<ABlockLog) - 1) >> ABlockLog;
+//			as.arena = ix->arenas[i];
+//			as.aa = ia.addr;
+//			as.stats = as.arena->memstats;
+			trie_insert(c->info.score,&ia.addr);
+			qunlock(&ix->writing);
+			trace(TraceLump, "writeiclump exit");
+			return ia.addr;
+		}
+	}
+	qunlock(&ix->writing);
+
+	seterr(EAdmin, "no space left in arenas");
+	trace(TraceLump, "writeiclump failed");
+	return TWID64;
+}
+
+/*
+ * convert an arena index to an relative arena address
+ */
+Arena*
+amapitoa(Index *ix, u64int a, u64int *aa)
+{
+#ifdef XXX
+	*aa = a & 0xFFFFFFFFULL;
+	return ix->arenas[(int)(a>>48)];
+#else
+	int i, r, l, m;
+
+	l = 1;
+	r = ix->narenas - 1;
+	while(l <= r){
+		m = (r + l) / 2;
+		if(ix->amap[m].start <= a)
+			l = m + 1;
+		else
+			r = m - 1;
+	}
+	l--;
+
+	if(a > ix->amap[l].stop){
+for(i=0; i<ix->narenas; i++)
+	print("arena %d: %llux - %llux\n", i, ix->amap[i].start, ix->amap[i].stop);
+print("want arena %d for %llux\n", l, a);
+		seterr(ECrash, "unmapped address passed to amapitoa");
+		return nil;
+	}
+
+	if(ix->arenas[l] == nil){
+		seterr(ECrash, "unmapped arena selected in amapitoa");
+		return nil;
+	}
+	*aa = a - ix->amap[l].start;
+	assert(*aa < 0x1ULL<<48 );
+	return ix->arenas[l];
+#endif
+}
+
+int
+loadclumpinfo(uvlong addr, ClumpInfo *ci)
+{
+	Arena *arena;
+	u64int aa;
+	unsigned char buf[ClumpInfoSize];
+	arena = amapitoa(mainindex, addr, &aa);
+	if(arena!=nil) {
+		readarena(arena,aa+4,buf,ClumpInfoSize);
+		unpackclumpinfo(ci, buf);
+		return 0;
+	}
+	return -1;
+}
+
+/*
+ * lookup the score in the partition
+ */
+int
+loadientry(Index *ix, u8int *score, int type, IEntry *ie)
+{
+	unsigned int h;
+	int ok;
+	ClumpInfo ci;
+
+	ok = -1;
+
+	trace(TraceLump, "loadientry enter");
+
+	h = trie_retrieve(score,&ie->ia.addr);
+	if( h != ~0) ok = 0; 
+	else {
+		trace(TraceLump, "loadientry notfound");
+		addstat(StatBloomFalseMiss, 1);
+	}
+	if(ok==0) {
+		if( loadclumpinfo(ie->ia.addr, &ci) == 0) {
+			memcpy(ie->score,score,VtScoreSize);
+			ie->ia.type = ci.type;
+			ie->ia.size = ci.uncsize;
+			ie->ia.blocks = (ci.size + ClumpSize + (1<<ABlockLog)-1) >> ABlockLog;
+		} else ok = -1;
+	}
+	trace(TraceLump, "loadientry exit");
+	return ok;
+}
+
+int
+insertscore(u8int score[VtScoreSize], IAddr *ia, int state, AState *as)
+{
+	return trie_insert(score,&ia->addr);;
+}
+
+int
+lookupscore(u8int score[VtScoreSize], int type, IAddr *ia)
+{
+// cannot use trie_retrieve, because we need ia.type
+	IEntry ie;
+	int ret = loadientry(mainindex, score, type, &ie);
+	*ia = ie.ia;
+	if(ret == -1 || ie.ia.type != type) return -1;
+	return 0;
+}
+
+// hic sunt leones
+// these are defined here to avoid pulling bitrot from libvs.a
+int icacheprefetch = 1;
+
+void emptyicache(void) { }
+void icacheclean(IEntry *x) { USED(x); }
+void initicache(u32int x) { USED(x); }
+
+/* cannot be removed, bec. hdisk.c */
+int
+icachelookup(u8int score[VtScoreSize], int type, IAddr *ia)
+{
+	return lookupscore(score,type,ia);
+}
+
+u32int
+hashbits(u8int *sc, int bits)
+{
+        u32int v;
+                
+        v = (sc[0] << 24) | (sc[1] << 16) | (sc[2] << 8) | sc[3];
+        if(bits < 32)
+                 v >>= (32 - bits);
+        return v;
+}
+
+ulong icachedirtyfrac(void) { return 500000; }
+
+void initicachewrite(void) {}
+
+int icachesleeptime = 1000;
+
+void		flushicache(void) {}
+
+void		kickicache(void) {}
+
+int minicachesleeptime = 0;
+
+void		delaykickicache(void) {}
+
+// from lumpqueue.c
+int
+queuewrite(Lump *u, Packet *p, int creator, uint ms) {return 0;}
+
