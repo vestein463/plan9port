@@ -6,18 +6,12 @@
 #include "dat.h"
 #include "fns.h"
 
-//#define XXX
-
 int debug=0;
 int nofork=0;
 extern int nowrci;
 int mainstacksize = 256*1024;
 VtSrv *ventisrv;
 Config config;
-
-void trie_init(void);
-unsigned int trie_insert(unsigned char *, uvlong*); 
-unsigned int trie_retrieve(unsigned char *, uvlong*); 
 
 static void ventiserver(void*);
 static void fmtindex(Config *conf, Index *ix);
@@ -68,6 +62,9 @@ threadmain(int argc, char *argv[])
 	mem = 64*1024*1024;
 	bcmem = 10*1024*1024;
 	ARGBEGIN{
+	case 'A':
+		(void) unittoull(EARGF(usage()));
+		break;
 	case 'a':
 		vaddr = EARGF(usage());
 		break;
