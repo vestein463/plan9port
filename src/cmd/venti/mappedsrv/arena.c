@@ -90,10 +90,6 @@ newarena(Part *part, u32int vers, char *name, u64int base, u64int size, u32int b
 	int bsize;
 	Arena *arena;
 
-	if(nameok(name) < 0){
-		seterr(EOk, "illegal arena name", name);
-		return nil;
-	}
 	arena = MKZ(Arena);
 	arena->part = part;
 	arena->version = vers;
@@ -109,6 +105,15 @@ newarena(Part *part, u32int vers, char *name, u64int base, u64int size, u32int b
 	arena->base = base + blocksize;
 	arena->size = size - 2 * blocksize;
 
+	if( name == (void*)0 ) {
+		namecp(arena->name, "a.");
+		wbarenahead(arena);
+		return arena;
+	}
+	if(nameok(name) < 0){
+		seterr(EOk, "illegal arena name", name);
+		return nil;
+	}
 	namecp(arena->name, name);
 
 	bsize = sizeof zero;
@@ -246,6 +251,8 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 			arena->memstats.sealed = 1;
 		}
 		putclumpinfo( arena );
+		if(arena->ib) free( arena->ib );
+		arena->ib = 0;
 		qunlock(&arena->lock);
 		sealarena(arena);
 		return TWID64;
@@ -286,8 +293,8 @@ static void
 sealarena(Arena *arena)
 {
 	arena->inqueue = 1;
-	sumarena(arena);
-//	backsumarena(arena);
+//	sumarena(arena);
+	backsumarena(arena);
 }
 
 void
@@ -440,16 +447,24 @@ loadarena(Arena *arena)
 		freezblock(b);
 		return -1;
 	}
-	if(unpackarena(arena, b->data) < 0){
+	if(unpackarena(arena, b->data) < 0){ /* no correct trailer */
+		readpart(arena->part, arena->base - arena->blocksize, b->data, arena->blocksize);
+		unpackarenahead(&head, b->data);
+		namecp( arena->name, head.name );
+		arena->clumpmagic = head.clumpmagic;
+		arena->version = head.version;
+		arena->blocksize = head.blocksize;
 		freezblock(b);
-		return -1;
+		if( arena->size != head.size - 2 * arena->blocksize) return -1;
+		else return 0;
 	}
+	else
+		scorecp(arena->score, &b->data[arena->blocksize - VtScoreSize]);
 	if(arena->version != ArenaVersion4 && arena->version != ArenaVersion5){
 		seterr(EAdmin, "unknown arena version %d", arena->version);
 		freezblock(b);
 		return -1;
 	}
-	scorecp(arena->score, &b->data[arena->blocksize - VtScoreSize]);
 
 	if(readpart(arena->part, arena->base - arena->blocksize, b->data, arena->blocksize) < 0){
 		logerr(EAdmin, "can't read arena header: %r");

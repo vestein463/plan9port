@@ -68,8 +68,9 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 		arena->ib = MKNZ(u8int,8192);
 	if( arena->iba == 0) {
 		u32int block = clumps / arena->clumpmax;
+/* ??? */
 		arena->iba = arena->base+arena->size-(block+1)*arena->blocksize;
-		memmove( arena->ib, arena->part->mapped+arena->iba, 8192);
+//		memmove( arena->ib, arena->part->mapped+arena->iba, 8192);
 	}
 		
 #endif

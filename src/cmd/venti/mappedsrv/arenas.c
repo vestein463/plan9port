@@ -87,6 +87,22 @@ delarena(Arena *arena)
 	return -1;
 }
 
+static ArenaPart*
+initialised(ArenaPart *ap)
+{
+//	ap->version = ArenaPartVersion;
+	ap->version = 0;
+	ap->blocksize = 8192;
+	ap->tabbase = 0;
+	ap->arenabase = 0;
+	ap->tabsize = 0;
+	ap->narenas = 1;
+	ap->arenas = MKNZ(Arena*, ap->narenas);
+	ap->arenas[0] = newarena(ap->part, ArenaVersion4, 0, 0,
+		ap->size, ap->blocksize);
+	return ap;
+}
+
 ArenaPart*
 initarenapart(Part *part)
 {
@@ -105,11 +121,10 @@ initarenapart(Part *part)
 	if(ap == nil)
 		return nil;
 	ap->part = part;
+	ap->size = part->size;
 	ok = unpackarenapart(ap, bdata);
-	if(ok < 0){
-		freearenapart(ap, 0);
-		return nil;
-	}
+	if(ok < 0)
+		return initialised(ap);
 
 	ap->tabbase = (PartBlank + HeadSize + ap->blocksize - 1) & ~(ap->blocksize - 1);
 	if(ap->version != ArenaPartVersion){
