@@ -160,6 +160,7 @@ readclumpinfos(Arena *arena, int clump, ClumpInfo *cis, int n)
 	return n;
 }
 
+static DBlock *delayedcib;
 /*
  * write directory information for one clump
  * must be called the arena locked
@@ -172,7 +173,10 @@ writeclumpinfo(Arena *arena, int clump, ClumpInfo *ci)
 	cib = getcib(arena, clump, 1, &r);
 	if(cib == nil)
 		return -1;
-	dirtydblock(cib->data, DirtyArenaCib);
+	/* delay marking cib dirty until full */
+//	if( cib->offset > arena->blocksize-2*ClumpInfoSize )
+		dirtydblock(cib->data, DirtyArenaCib);
+		delayedcib = cib->data;
 	packclumpinfo(ci, &cib->data->data[cib->offset]);
 	putcib(arena, cib);
 	return 0;
@@ -304,6 +308,7 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 	int ok;
 
 	n = c->info.size + ClumpSize + U32Size;
+	if(arena->diskstats.sealed) return TWID64;
 	qlock(&arena->lock);
 	aa = arena->memstats.used;
 	if(arena->memstats.sealed
@@ -311,8 +316,10 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 		if(!arena->memstats.sealed){
 			logerr(EOk, "seal memstats %s", arena->name);
 			arena->memstats.sealed = 1;
-			wbarena(arena);
 		}
+//		if (delayedcib != nil)
+//			dirtydblock(delayedcib, DirtyArenaCib);
+		delayedcib = nil;
 		qunlock(&arena->lock);
 		return TWID64;
 	}
@@ -386,84 +393,12 @@ NoCIG:
 	if(arena->ctime == 0)
 		arena->ctime = arena->wtime;
 
-	if( !nowrci ) {
-		writeclumpinfo(arena, clump, &c->info);
-		wbarena(arena);
-	}
+	writeclumpinfo(arena, clump, &c->info);
+//	wbarena(arena);
 
 	qunlock(&arena->lock);
 
 	return aa;
-}
-
-int
-atailcmp(ATailStats *a, ATailStats *b)
-{
-	/* good test */
-	if(a->used < b->used)
-		return -1;
-	if(a->used > b->used)
-		return 1;
-
-	/* suspect tests - why order this way? (no one cares) */
-	if(a->clumps < b->clumps)
-		return -1;
-	if(a->clumps > b->clumps)
-		return 1;
-	if(a->cclumps < b->cclumps)
-		return -1;
-	if(a->cclumps > b->cclumps)
-		return 1;
-	if(a->uncsize < b->uncsize)
-		return -1;
-	if(a->uncsize > b->uncsize)
-		return 1;
-	if(a->sealed < b->sealed)
-		return -1;
-	if(a->sealed > b->sealed)
-		return 1;
-
-	/* everything matches */
-	return 0;
-}
-
-void
-setatailstate(AState *as)
-{
-	int i, j, osealed;
-	Arena *a;
-	Index *ix;
-
-	trace(0, "setatailstate %s 0x%llux clumps %d", as->arena->name, as->aa, as->stats.clumps);
-
-	/*
-	 * Look up as->arena to find index.
-	 */
-	needmainindex();	/* OS X linker */
-	ix = mainindex;
-	for(i=0; i<ix->narenas; i++)
-		if(ix->arenas[i] == as->arena)
-			break;
-	if(i==ix->narenas || as->aa < ix->amap[i].start || as->aa >= ix->amap[i].stop || as->arena != ix->arenas[i]){
-		fprint(2, "funny settailstate 0x%llux\n", as->aa);
-		return;
-	}
-
-	for(j=0; j<=i; j++){
-		a = ix->arenas[j];
-		if(atailcmp(&a->diskstats, &a->memstats) == 0)
-			continue;
-		qlock(&a->lock);
-		osealed = a->diskstats.sealed;
-		if(j == i)
-			a->diskstats = as->stats;
-		else
-			a->diskstats = a->memstats;
-		wbarena(a);
-		if(a->diskstats.sealed != osealed && !a->inqueue)
-			sealarena(a);
-		qunlock(&a->lock);
-	}
 }
 
 /*

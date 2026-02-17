@@ -370,6 +370,7 @@ struct Arena
 
 	int		clumpmax;		/* ClumpInfos per block */
 //	AState		mem;
+	DigestState	*ds;			/* digest state for sealing */
 	int		inqueue;
 
 	/*

@@ -268,7 +268,7 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 	if(c->info.size < c->info.uncsize)
 		arena->memstats.cclumps++;
 
-	uint32 clump = arena->memstats.clumps;
+	u32int clump = arena->memstats.clumps;
 	arena->memstats.clumps++;
 	if(arena->memstats.clumps == 0)
 		sysfatal("clumps wrapped");

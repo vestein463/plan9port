@@ -2,8 +2,6 @@
 #include "dat.h"
 #include "fns.h"
 
-//#define XXX
-
 int loadclumpinfo(uvlong addr, ClumpInfo *ci);
 
 /* 
@@ -194,7 +192,6 @@ assert(scotable==0 || memcmp(scotable+scotabwd*(actb*256+tr),oldscore+2,scotabwd
 
 /* trie_print prints (part of the) input file in lexical order. */
 static void trie_print0(unsigned short int t) {
-//	IEntry ie;
 	Arena *arena;
         ClumpInfo ci;
         u64int aa=0;
@@ -207,8 +204,6 @@ static void trie_print0(unsigned short int t) {
                 if(arena!=nil) {
                         readarena(arena,aa+4,buf,ClumpInfoSize);
                         unpackclumpinfo(&ci, buf);
-//                        ie.ia.type = ci.type;
-//                        ie.ia.size = ci.uncsize;
 			print("%V %20ulld%3x%6ud\n", ci.score, aa, ci.type, ci.size);
                 } else fprint(2, "illegal addr: %ullx\n", act->leaves[tr].addr );
 	} else {
@@ -378,13 +373,7 @@ arenapartproc(void *v)
 		 * stored in reverse order at the end of the arena.
 		 * This speeds things slightly.
 		 */
-#ifdef XXX
-		addr = ((uvlong)i)<<48 + a->memstats.used;
-		fprint(2, "addr: %llx ", addr );
-		fprint(2, "used: %ull, clumps: %d\n", a->memstats.used, a->memstats.clumps );
-#else
 		addr = ix->amap[i].start + a->memstats.used;
-#endif  
 		for(clump=a->memstats.clumps; clump > 0; clump-=n){
 			n = ClumpChunks;
 			if(n > clump)
@@ -410,15 +399,10 @@ arenapartproc(void *v)
 				}
 			}
 		}
-#ifdef XXX
-		fprint(2, "start: %ullx\n", addr );
-		assert(addr == ((uvlong)i)<<48);
-#else
 		if(addr != ix->amap[i].start)
 			fprint(2, "%T arena %s: clump miscalculation %ulld != %ulld\n", a->name, addr, ix->amap[i].start);
 // this error makes mventi unusable
 		assert(addr == ix->amap[i].start);
-#endif
 	}
 	static Lock l;
 	lock(&l);

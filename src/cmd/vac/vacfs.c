@@ -690,6 +690,7 @@ vacstat(VacFile *parent, VacDir *vd, uchar *p, int np)
 		n = vacfileread(vf, ext, size, 0);
 		USED(n);
 		ext[size] = 0;
+fprint(2, "Link vacfileread %s\n", ext );
 		vacfiledecref(vf);
 		if(vd->mode & ModeLink){
 			dir.qid.type |= QTSYMLINK;

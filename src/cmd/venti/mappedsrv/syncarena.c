@@ -44,8 +44,8 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 	cclumps = arena->memstats.cclumps;
 	uncsize = arena->memstats.uncsize;
 #else
-	u8int *iba = arena->part->mapped+arena->base+arena->size-8192;
-	while( iba[0] && iba < arena->part->mapped+arena->base+used) {
+	u8int *iba = arena->part->mapped+arena->base+arena->size-arena->blocksize;
+	while( iba[0] && iba > arena->part->mapped+arena->base+used) {
 		for( int i=0; i< arena->clumpmax;i++) {
 			if(iba[25*i] == 0) break;
 			clumps++;
@@ -55,7 +55,7 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 			uncsize += iba[4+25*i];
 			cclumps += iba[2+25*i] != iba[4+25*i];
 		}
-		iba -= 8192;
+		iba -= arena->blocksize;
 	}
 
 	fprint(2, "memstats.used %lld, used %lld\n", arena->memstats.used , used);

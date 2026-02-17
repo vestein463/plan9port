@@ -32,14 +32,49 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 	ClumpInfo ci;
 	static ClumpInfo zci = { .type = -1 };
 	u8int score[VtScoreSize];
-	u64int uncsize, used, aa;
-	u32int clump, clumps, cclumps, magic;
+	u64int uncsize=0, used=0, aa;
+	u32int clump=0, clumps=0, cclumps=0, magic;
 	int err, flush, broken;
+	/* sealed and empty arenas dont need sync */
+	if( arena->diskstats.sealed || clumpmagic(arena, 0) == ClumpFreeMagic)
+		return 0;
 
+	/* don't rely on trailer */
+#ifdef DRECK
 	used = arena->memstats.used;
 	clumps = arena->memstats.clumps;
 	cclumps = arena->memstats.cclumps;
 	uncsize = arena->memstats.uncsize;
+#else
+	DBlock *b;
+	int j=1;
+	b =getdblock( arena->part, arena->base+arena->size-j*arena->blocksize, OREAD);
+	u8int *iba = b->data;
+	while( iba[0] && used < arena->size-j*arena->blocksize) {
+		for( int i=0; i< arena->clumpmax;i++) {
+			if(iba[ClumpInfoSize*i] == 0) break;
+			clumps++;
+			used += 256*iba[1+ClumpInfoSize*i];
+			used += ClumpSize+iba[2+ClumpInfoSize*i];
+			uncsize += 256*iba[3+ClumpInfoSize*i];
+			uncsize += iba[4+ClumpInfoSize*i];
+			cclumps += iba[2+ClumpInfoSize*i] != iba[4+ClumpInfoSize*i];
+//if(i==0) fprint(2, "clumps %d, used %lld, i %d\n", clumps, used, i);
+		}
+		putdblock(b);
+		j++;
+		b = getdblock(arena->part, arena->base+arena->size-j*arena->blocksize, OREAD);
+		iba = b->data;
+	}
+	putdblock(b);
+
+	fprint(2, "memstats.used %lld, used %lld\n", arena->memstats.used , used);
+	fprint(2, "memstats.clumps %d, clumps %d\n", arena->memstats.clumps , clumps);
+	arena->memstats.used = used;
+	arena->memstats.clumps = clumps;
+	arena->memstats.cclumps = cclumps;
+	arena->memstats.uncsize = uncsize;
+#endif
 	trace(TraceProc, "syncarena start");
 	flush = 0;
 	err = 0;

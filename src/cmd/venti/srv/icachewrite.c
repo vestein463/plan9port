@@ -230,6 +230,79 @@ icachewriteproc(void *v)
 	}
 }
 
+static int
+atailcmp(ATailStats *a, ATailStats *b)
+{
+	/* good test */
+	if(a->used < b->used)
+		return -1;
+	if(a->used > b->used)
+		return 1;
+
+	/* suspect tests - why order this way? (no one cares) */
+	if(a->clumps < b->clumps)
+		return -1;
+	if(a->clumps > b->clumps)
+		return 1;
+	if(a->cclumps < b->cclumps)
+		return -1;
+	if(a->cclumps > b->cclumps)
+		return 1;
+	if(a->uncsize < b->uncsize)
+		return -1;
+	if(a->uncsize > b->uncsize)
+		return 1;
+	if(a->sealed < b->sealed)
+		return -1;
+	if(a->sealed > b->sealed)
+		return 1;
+
+	/* everything matches */
+	return 0;
+}
+
+void
+setatailstate(AState *as)
+{
+	int i, j, osealed;
+	Arena *a;
+	Index *ix;
+
+	trace(0, "setatailstate %s 0x%llux clumps %d", as->arena->name, as->aa, as->stats.clumps);
+
+	/*
+	 * Look up as->arena to find index.
+	 */
+	needmainindex();	/* OS X linker */
+	ix = mainindex;
+	for(i=0; i<ix->narenas; i++)
+		if(ix->arenas[i] == as->arena)
+			break;
+	if(i==ix->narenas || as->aa < ix->amap[i].start || as->aa >= ix->amap[i].stop || as->arena != ix->arenas[i]){
+		fprint(2, "funny settailstate 0x%llux\n", as->aa);
+		return;
+	}
+
+	for(j=0; j<=i; j++){
+		a = ix->arenas[j];
+		if(atailcmp(&a->diskstats, &a->memstats) == 0)
+			continue;
+		qlock(&a->lock);
+		osealed = a->diskstats.sealed;
+		if(j == i)
+			a->diskstats = as->stats;
+		else
+			a->diskstats = a->memstats;
+		wbarena(a);
+		if(a->diskstats.sealed != osealed && !a->inqueue) {
+			/* sealarena(a); */
+			a->inqueue = 1;
+			backsumarena(a);
+		}
+		qunlock(&a->lock);
+	}
+}
+
 static void
 icachewritecoord(void *v)
 {
