@@ -175,8 +175,9 @@ writeclumpinfo(Arena *arena, int clump, ClumpInfo *ci)
 		return -1;
 	/* delay marking cib dirty until full */
 //	if( cib->offset > arena->blocksize-2*ClumpInfoSize )
-		dirtydblock(cib->data, DirtyArenaCib);
+	{	dirtydblock(cib->data, DirtyArenaCib);
 		delayedcib = cib->data;
+	}
 	packclumpinfo(ci, &cib->data->data[cib->offset]);
 	putcib(arena, cib);
 	return 0;
