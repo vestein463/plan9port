@@ -322,6 +322,7 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 //			dirtydblock(delayedcib, DirtyArenaCib);
 		delayedcib = nil;
 		qunlock(&arena->lock);
+		sealarena(arena);
 		return TWID64;
 	}
 	if(packclump(c, &clbuf[0], arena->clumpmagic) < 0){
@@ -410,8 +411,11 @@ NoCIG:
 static void
 sealarena(Arena *arena)
 {
+	if(arena->inqueue != 0) return;
 	arena->inqueue = 1;
+fprint(2, "sealarena\n");
 	backsumarena(arena);
+//	sumarena(arena);
 }
 
 void
@@ -470,10 +474,17 @@ sumarena(Arena *arena)
 	int t;
 	u8int score[VtScoreSize];
 
+fprint(2, "sumarena\n" );
 	bs = MaxIoSize;
 	if(bs < arena->blocksize)
 		bs = arena->blocksize;
 
+fprint(2, "memstats.used %ulld, diskstats.used %ulld\n", arena->memstats.used, arena->diskstats.used);
+	qlock(&arena->lock);
+	arena->diskstats = arena->memstats;
+//fprint(2, "wbarena\n" );
+	wbarena(arena);
+	qunlock(&arena->lock);
 	/*
 	 * read & sum all blocks except the last one
 	 */
@@ -482,16 +493,19 @@ sumarena(Arena *arena)
 	b = alloczblock(bs, 0, arena->part->blocksize);
 	e = arena->base + arena->size;
 	for(a = arena->base - arena->blocksize; a + arena->blocksize <= e; a += bs){
-		disksched();
-		while((t=arenasumsleeptime) == SleepForever){
-			sleep(1000);
+		if(mainindex->sects !=nil) {
 			disksched();
+			while((t=arenasumsleeptime) == SleepForever){
+				sleep(1000);
+				disksched();
+			}
+			sleep(t);
 		}
-		sleep(t);
 		if(a + bs > e)
 			bs = arena->blocksize;
 		if(readpart(arena->part, a, b->data, bs) < 0)
 			goto ReadErr;
+//fprint(2, "addstat %d\n" , bs);
 		addstat(StatSumRead, 1);
 		addstat(StatSumReadBytes, bs);
 		sha1(b->data, bs, nil, &s);

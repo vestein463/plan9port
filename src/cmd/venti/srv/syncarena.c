@@ -34,7 +34,7 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 	u8int score[VtScoreSize];
 	u64int uncsize=0, used=0, aa;
 	u32int clump=0, clumps=0, cclumps=0, magic;
-	int err, flush, broken;
+	int err, flush=0, broken;
 	/* sealed and empty arenas dont need sync */
 	if( arena->diskstats.sealed || clumpmagic(arena, 0) == ClumpFreeMagic)
 		return 0;
@@ -70,13 +70,14 @@ syncarena(Arena *arena, u32int n, int zok, int fix)
 
 	fprint(2, "memstats.used %lld, used %lld\n", arena->memstats.used , used);
 	fprint(2, "memstats.clumps %d, clumps %d\n", arena->memstats.clumps , clumps);
+	if(arena->memstats.used!=used)
+		flush = 1;
 	arena->memstats.used = used;
 	arena->memstats.clumps = clumps;
 	arena->memstats.cclumps = cclumps;
 	arena->memstats.uncsize = uncsize;
 #endif
 	trace(TraceProc, "syncarena start");
-	flush = 0;
 	err = 0;
 	for(; n; n--){
 		aa = arena->memstats.used;

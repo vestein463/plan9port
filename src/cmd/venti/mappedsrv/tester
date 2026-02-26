@@ -13,7 +13,7 @@ fn reformat {
 }
 
 fn venti {
-	./o.mventi -a $venti -h $http $vtmp/arena >$vtmp/venti.log >[2=1]
+	./o.mventi -L -a $venti -h $http $vtmp/arena >$vtmp/venti.log >[2=1]
 }
 
 fn killventi {

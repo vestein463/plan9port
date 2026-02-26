@@ -295,7 +295,7 @@ setatailstate(AState *as)
 			a->diskstats = a->memstats;
 		wbarena(a);
 		if(a->diskstats.sealed != osealed && !a->inqueue) {
-			/* sealarena(a); */
+			/* this is: sealarena(a); */
 			a->inqueue = 1;
 			backsumarena(a);
 		}

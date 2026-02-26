@@ -587,3 +587,16 @@ void		delaykickicache(void) {}
 int
 queuewrite(Lump *u, Packet *p, int creator, uint ms) {return 0;}
 
+//from disksched.c
+int l0quantum = 120;
+int l1quantum = 120;
+int manualscheduling;
+void
+diskaccess(int level)
+{
+	USED(level);
+}
+void
+disksched(void)
+{
+}

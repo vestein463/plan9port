@@ -343,7 +343,7 @@ enum
 static void
 arenapartproc(void *v)
 {
-	int i, j, n, nskip;
+	int i, nskip;
 	u32int clump;
 	uvlong addr, tot;
 	Arena *a;

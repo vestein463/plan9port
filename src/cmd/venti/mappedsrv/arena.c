@@ -292,8 +292,8 @@ writeaclump(Arena *arena, Clump *c, u8int *clbuf)
 static void
 sealarena(Arena *arena)
 {
+	if( arena->inqueue ) return;
 	arena->inqueue = 1;
-//	sumarena(arena);
 	backsumarena(arena);
 }
 
@@ -351,7 +351,6 @@ sumarena(Arena *arena)
 	u32int bs;
 	u8int score[VtScoreSize];
 
-fprint(2, "sumarena\n" );
 	bs = MaxIoSize;
 	if(bs < arena->blocksize)
 		bs = arena->blocksize;
@@ -373,7 +372,6 @@ fprint(2, "memstats.used %ulld, diskstats.used %ulld\n", arena->memstats.used, a
 	uchar *trailer = arena->part->mapped + arena->base + arena->size;
 	arena->diskstats.sealed=1;
 	packarena(arena, trailer);
-fprint(2, "a %llx, e %llx\n", a, e);
 	sha1(arena->part->mapped+a, e, nil, &s );
 	sha1(zeroscore, VtScoreSize, nil, &s);
 	sha1(nil, 0, score, &s);
